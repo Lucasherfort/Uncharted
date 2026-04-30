@@ -40127,85 +40127,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1312613744}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1645733120
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1645733122}
-  - component: {fileID: 1645733121}
-  - component: {fileID: 1645733123}
-  m_Layer: 0
-  m_Name: NetworkManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1645733121
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1645733120}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b7a76ee09f434f14489072f56aadac0e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  playerNameInput: {fileID: 5325726624340482555}
-  Lobby: {fileID: 2527674077728131842}
-  Waiting: {fileID: 2011595124}
-  Wave: {fileID: 1825586994}
-  TxtRoom: {fileID: 1207317996}
-  TxtAttente: {fileID: 237887713}
-  playerPrefab: {fileID: 4758430773197775429, guid: 943b5e1efe62a5443a2442f2ec2c3a45, type: 3}
-  spawnPoints:
-  - {fileID: 1650249237}
-  - {fileID: 954002057}
-  - {fileID: 955615906}
-  - {fileID: 1386684251}
---- !u!4 &1645733122
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1645733120}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 740.49994, y: 416.5, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1645733123
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1645733120}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aa584fbee541324448dd18d8409c7a41, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  ObservedComponentsFoldoutOpen: 1
-  Group: 0
-  prefixField: -1
-  Synchronization: 3
-  OwnershipTransfer: 0
-  observableSearch: 2
-  ObservedComponents: []
-  sceneViewId: 2
-  InstantiationId: 0
-  isRuntimeInstantiated: 0
 --- !u!1 &1648246811
 GameObject:
   m_ObjectHideFlags: 0
@@ -50550,8 +50471,9 @@ GameObject:
   - component: {fileID: 2064186434}
   - component: {fileID: 2064186435}
   - component: {fileID: 2064186436}
+  - component: {fileID: 2064186437}
   m_Layer: 0
-  m_Name: GameManager
+  m_Name: SurvivalManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -50602,6 +50524,25 @@ MonoBehaviour:
   waveText: {fileID: 283314999466490501}
   zombiesLeftText: {fileID: 3740758572377877208}
 --- !u!114 &2064186436
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2064186433}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6451c174ffa858b418188cc8368d385a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  playerPrefab: {fileID: 4758430773197775429, guid: 943b5e1efe62a5443a2442f2ec2c3a45, type: 3}
+  spawnPoints:
+  - {fileID: 1650249237}
+  - {fileID: 954002057}
+  - {fileID: 955615906}
+  - {fileID: 1386684251}
+  waveManager: {fileID: 2064186435}
+--- !u!114 &2064186437
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -52714,7 +52655,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1645733121}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: Launcher, Assembly-CSharp
         m_MethodName: JoindreRoomPrincipal
         m_Mode: 1
@@ -53348,5 +53289,4 @@ SceneRoots:
   - {fileID: 664365706}
   - {fileID: 562202920}
   - {fileID: 2063737608621216814}
-  - {fileID: 1645733122}
   - {fileID: 2064186434}
