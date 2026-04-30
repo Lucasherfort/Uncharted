@@ -75,25 +75,54 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         CheckFullRoom();
     }
 
-    private void RefreshLobbyStatus()
-    {
-        int current = PhotonNetwork.CurrentRoom.PlayerCount;
-        int max = PhotonNetwork.CurrentRoom.MaxPlayers;
-        MenuManager.Instance.UpdateLobbyUI(current, max);
-    }
+private void RefreshLobbyStatus()
+{
+    if (PhotonNetwork.CurrentRoom == null) return;
 
-    private void CheckFullRoom()
+    int current = PhotonNetwork.CurrentRoom.PlayerCount;
+    int max = PhotonNetwork.CurrentRoom.MaxPlayers;
+    
+    // On passe la liste des joueurs connectés
+    MenuManager.Instance.UpdateLobbyUI(current, max, PhotonNetwork.PlayerList);
+}
+
+private void CheckFullRoom()
     {
-        // Seul le Master décide du lancement
         if (PhotonNetwork.IsMasterClient)
         {
             int current = PhotonNetwork.CurrentRoom.PlayerCount;
+            
             if (current >= maxPlayersPerRoom)
             {
-                Debug.Log("<color=green>[Network]</color> Salle pleine. Lancement imminent !");
-                PhotonNetwork.CurrentRoom.IsOpen = false; // On ferme la porte
-                PhotonNetwork.LoadLevel("Survival"); // NOM DE TA SCÈNE DE JEU
+                Debug.Log("<color=green>[Network]</color> Salle pleine. Fermeture des entrées.");
+                PhotonNetwork.CurrentRoom.IsOpen = false; 
+                // PhotonNetwork.LoadLevel("Survival"); 
+            }
+            else
+            {
+                // IMPORTANT : Si on n'est plus assez, on réouvre la porte !
+                if (!PhotonNetwork.CurrentRoom.IsOpen)
+                {
+                    Debug.Log("<color=yellow>[Network]</color> Place libérée. Réouverture de la salle.");
+                    PhotonNetwork.CurrentRoom.IsOpen = true;
+                }
             }
         }
+    }
+
+    // Appelé automatiquement par Photon quand UN AUTRE joueur quitte la room
+    /// <summary>
+    /// Called automatically by Photon when another player leaves the room.
+    /// </summary>
+    /// <param name="otherPlayer">The player who left the room.</param>
+    public override void OnPlayerLeftRoom(Player otherPlayer)
+    {
+        Debug.Log($"<color=orange>[Network]</color> {otherPlayer.NickName} a quitté la salle.");
+    
+        // On rafraîchit l'affichage pour libérer le slot
+        RefreshLobbyStatus();
+
+        // On vérifie s'il faut réouvrir la salle maintenant qu'il y a de la place
+        CheckFullRoom();
     }
 }
