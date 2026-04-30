@@ -125,4 +125,19 @@ private void CheckFullRoom()
         // On vérifie s'il faut réouvrir la salle maintenant qu'il y a de la place
         CheckFullRoom();
     }
+
+    public void StartGame()
+    {
+        if (PhotonNetwork.IsMasterClient)
+        {
+            Debug.Log("<color=green>[Network]</color> Le Master lance la partie !");
+            
+            // On ferme la salle pour que personne ne puisse rejoindre pendant le chargement
+            PhotonNetwork.CurrentRoom.IsOpen = false;
+            PhotonNetwork.CurrentRoom.IsVisible = false;
+
+            // On charge la scène de jeu
+            PhotonNetwork.LoadLevel("Survival"); 
+        }
+    }
 }

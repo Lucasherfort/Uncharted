@@ -2,8 +2,8 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 using System.Collections.Generic;
-using Photon.Pun;
 using Photon.Realtime;
+using Photon.Pun;
 
 public class MenuManager : MonoBehaviour
 {
@@ -20,6 +20,8 @@ public class MenuManager : MonoBehaviour
     [Header("Lobby List")]
     // Liste de tes scripts/objets attachés à tes slots UI
     public List<PlayerLobbyInfo> playerLobbyInfos = new List<PlayerLobbyInfo>();
+
+    public Button startGameButton; // Bouton pour démarrer la partie (visible uniquement par le MasterClient)
 
     void Awake() => Instance = this;
 
@@ -72,6 +74,19 @@ public class MenuManager : MonoBehaviour
                 // Slot vide si moins de joueurs que de slots
                 playerLobbyInfos[i].playerNicknameText.text = "<color=#666666>Recherche de joueur...</color>";
             }
+        }
+
+        // 2. Gestion du bouton Start : Visible uniquement pour le MasterClient
+        // On peut aussi ajouter une condition : && current >= 2 pour forcer à être au moins deux
+        startGameButton.gameObject.SetActive(PhotonNetwork.IsMasterClient);
+    }
+
+    // Fonction à lier au bouton dans l'Inspecteur Unity
+    public void OnClickStartGame()
+    {
+        if (PhotonNetwork.IsMasterClient)
+        {
+            NetworkManager.Instance.StartGame();
         }
     }
 }
