@@ -46,9 +46,12 @@ public class PlayerHealth : MonoBehaviourPun
 
         UpdateUI();
 
+        // Seul celui qui possède le script (Owner) ou le Master peut décider de la mort
+        // Mais ici, on laisse chaque client vérifier pour son propre personnage pour plus de réactivité
         if (currentHealth <= 0 && !isDead)
         {
             isDead = true;
+            // On informe tout le monde que ce joueur est mort
             photonView.RPC(nameof(RPC_Die), RpcTarget.All);
         }
     }
@@ -56,81 +59,68 @@ public class PlayerHealth : MonoBehaviourPun
     [PunRPC]
     void RPC_Die()
     {
-        DisablePlayerVisual();
+        SetPlayerState(false);
 
         if (photonView.IsMine)
         {
-            StartCoroutine(Respawn());
+            StartCoroutine(RespawnRoutine());
         }
     }
 
-    void DisablePlayerVisual()
+    // Fonction centralisée pour activer/désactiver le joueur (plus propre)
+    void SetPlayerState(bool state)
     {
-        // input + gameplay
-        GetComponent<PlayerShooter>().enabled = false;
-        GetComponent<PlayerController>().enabled = false;
+        // Scripts de gameplay
+        if (TryGetComponent<PlayerShooter>(out var shooter)) shooter.enabled = state;
+        if (TryGetComponent<PlayerController>(out var controller)) controller.enabled = state;
 
-        // mesh + armes
-        foreach (Renderer r in GetComponentsInChildren<Renderer>())
-            r.enabled = false;
-
-        foreach (Collider c in GetComponentsInChildren<Collider>())
-            c.enabled = false;
+        // Visuels et Physique
+        foreach (Renderer r in GetComponentsInChildren<Renderer>()) r.enabled = state;
+        foreach (Collider c in GetComponentsInChildren<Collider>()) c.enabled = state;
 
         // UI
-        if (healthText != null)
-            healthText.gameObject.SetActive(false);
+        if (healthText != null) healthText.gameObject.SetActive(state);
 
-        // caméra locale uniquement
+        // Caméra locale
         if (photonView.IsMine)
         {
             Camera cam = GetComponentInChildren<Camera>();
-            if (cam) cam.enabled = false;
+            if (cam) cam.enabled = state;
         }
     }
 
-    System.Collections.IEnumerator Respawn()
+    System.Collections.IEnumerator RespawnRoutine()
     {
         yield return new WaitForSeconds(respawnDelay);
-
+        
+        // On demande le respawn via RPC pour synchroniser la position chez tout le monde
         photonView.RPC(nameof(RPC_Respawn), RpcTarget.All);
     }
 
     [PunRPC]
     void RPC_Respawn()
     {
-        Launcher launcher = FindObjectOfType<Launcher>();
+        // --- CHANGEMENT ICI ---
+        // On utilise le SurvivalManager au lieu du Launcher
+        if (SurvivalManager.Instance != null && SurvivalManager.Instance.spawnPoints.Length > 0)
+        {
+            // On choisit un point aléatoire pour éviter que les joueurs respawn les uns sur les autres
+            Transform[] spawns = SurvivalManager.Instance.spawnPoints;
+            Transform randomSpawn = spawns[Random.Range(0, spawns.Length)];
 
-        int index = (photonView.Owner.ActorNumber - 1) % launcher.spawnPoints.Length;
-        Transform spawn = launcher.spawnPoints[index];
+            transform.position = randomSpawn.position;
+            transform.rotation = randomSpawn.rotation;
+        }
 
-        transform.position = spawn.position;
-        transform.rotation = spawn.rotation;
-
-        // reset state
+        // Reset des variables
         currentHealth = maxHealth;
         isDead = false;
 
-        // réactivation globale
-        GetComponent<PlayerShooter>().enabled = true;
-        GetComponent<PlayerController>().enabled = true;
-
-        foreach (Renderer r in GetComponentsInChildren<Renderer>())
-            r.enabled = true;
-
-        foreach (Collider c in GetComponentsInChildren<Collider>())
-            c.enabled = true;
-
-        if (healthText != null)
-            healthText.gameObject.SetActive(true);
-
-        if (photonView.IsMine)
-        {
-            Camera cam = GetComponentInChildren<Camera>();
-            if (cam) cam.enabled = true;
-        }
-
+        // Réactivation
+        SetPlayerState(true);
         UpdateUI();
+        
+        Debug.Log($"<color=green>[Health]</color> Respawn de {photonView.Owner.NickName}");
     }
 
     void UpdateUI()

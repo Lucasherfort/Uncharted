@@ -2,6 +2,7 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 using Photon.Pun;
+using System.Collections; // Nécessaire pour les Coroutines
 
 public class PlayerShooter : MonoBehaviourPun
 {
@@ -14,7 +15,8 @@ public class PlayerShooter : MonoBehaviourPun
     public float damage = 5f;
     public float fireRate = 10f;
 
-    [Header("Ammo")]
+    [Header("Ammo Settings")]
+    public bool infiniteAmmo = false;
     public int maxAmmo = 30;
     public int currentAmmo;
     public int totalAmmo = 90;
@@ -29,10 +31,13 @@ public class PlayerShooter : MonoBehaviourPun
     [Header("UI")]
     public TMP_Text ammoTxt;
     public Image hitmarkerImage;
+    public Color hitColor = Color.red; // Couleur quand on touche
+    public float hitmarkerDuration = 0.5f;
 
     private float nextTimeToFire;
     private bool isReloading;
     private bool isFiring;
+    private Coroutine hitmarkerCoroutine; // Pour éviter les conflits de couleurs
 
     private PlayerInputActions input;
 
@@ -44,7 +49,6 @@ public class PlayerShooter : MonoBehaviourPun
     void OnEnable()
     {
         input.Player.Enable();
-
         input.Player.Fire.performed += _ => isFiring = true;
         input.Player.Fire.canceled += _ => isFiring = false;
     }
@@ -58,6 +62,10 @@ public class PlayerShooter : MonoBehaviourPun
     {
         currentAmmo = maxAmmo;
         UpdateAmmoUI();
+        
+        // Initialiser le hitmarker en blanc au départ
+        if (hitmarkerImage != null)
+            hitmarkerImage.color = Color.white;
     }
 
     void Update()
@@ -74,15 +82,17 @@ public class PlayerShooter : MonoBehaviourPun
         if (isReloading) return;
         if (Time.time < nextTimeToFire) return;
 
-        if (currentAmmo <= 0)
+        if (!infiniteAmmo)
         {
-            photonView.RPC(nameof(RPC_Empty), RpcTarget.All);
-            return;
+            if (currentAmmo <= 0)
+            {
+                photonView.RPC(nameof(RPC_Empty), RpcTarget.All);
+                return;
+            }
+            currentAmmo--;
         }
 
-        currentAmmo--;
         nextTimeToFire = Time.time + 1f / fireRate;
-
         Shoot();
         UpdateAmmoUI();
     }
@@ -95,32 +105,54 @@ public class PlayerShooter : MonoBehaviourPun
 
         if (Physics.Raycast(ray, out RaycastHit hit, range))
         {
+            // --- CIBLE : ZOMBIE ---
             if (hit.transform.TryGetComponent<ZombieHealth>(out var zombie))
             {
                 zombie.TakeDamage(damage);
                 photonView.RPC(nameof(RPC_HitSound), RpcTarget.All);
+                
+                // Effet visuel local
+                ShowHitmarker();
                 return;
             }
 
+            // --- CIBLE : JOUEUR ---
             PhotonView targetView = hit.transform.GetComponent<PhotonView>();
-
             if (targetView != null)
             {
-                photonView.RPC(nameof(RPC_DealDamagePlayer), RpcTarget.All,
-                    targetView.Owner.ActorNumber,
-                    damage);
+                photonView.RPC(nameof(RPC_DealDamagePlayer), RpcTarget.All, targetView.Owner.ActorNumber, damage);
+                
+                // Effet visuel local
+                ShowHitmarker();
             }
         }
+    }
+
+    // --- LOGIQUE DU HITMARKER ---
+    void ShowHitmarker()
+    {
+        if (hitmarkerImage == null) return;
+
+        // Si une coroutine tourne déjà (on tire vite), on l'arrête pour recommencer le chrono
+        if (hitmarkerCoroutine != null)
+            StopCoroutine(hitmarkerCoroutine);
+
+        hitmarkerCoroutine = StartCoroutine(HitmarkerFeedback());
+    }
+
+    IEnumerator HitmarkerFeedback()
+    {
+        hitmarkerImage.color = hitColor; // Passe au rouge
+        yield return new WaitForSeconds(hitmarkerDuration); // Attend 0.5s
+        hitmarkerImage.color = Color.white; // Revient au blanc
     }
 
     [PunRPC] void RPC_DealDamagePlayer(int actorNumber, float dmg)
     {
         PlayerHealth[] players = FindObjectsOfType<PlayerHealth>();
-
         foreach (var p in players)
         {
             PhotonView pv = p.GetComponent<PhotonView>();
-
             if (pv != null && pv.Owner.ActorNumber == actorNumber)
             {
                 if (pv.IsMine)
@@ -142,6 +174,6 @@ public class PlayerShooter : MonoBehaviourPun
     void UpdateAmmoUI()
     {
         if (ammoTxt)
-            ammoTxt.text = currentAmmo + " / " + totalAmmo;
+            ammoTxt.text = infiniteAmmo ? "∞ / ∞" : currentAmmo + " / " + totalAmmo;
     }
 }

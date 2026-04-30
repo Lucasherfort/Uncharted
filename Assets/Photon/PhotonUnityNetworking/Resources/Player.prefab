@@ -277,6 +277,7 @@ MonoBehaviour:
   range: 100
   damage: 10
   fireRate: 10
+  infiniteAmmo: 1
   maxAmmo: 30
   currentAmmo: 0
   totalAmmo: 90
