@@ -7,7 +7,7 @@ public class NetworkManager : MonoBehaviourPunCallbacks
     public static NetworkManager Instance;
     
     [Header("Settings")]
-    [SerializeField] private byte maxPlayersPerRoom = 2;
+    [SerializeField] private byte maxPlayersPerRoom = 10;
     [SerializeField] private string gameVersion = "1.0";
     [SerializeField] private string roomName = "SurvivalRoom_Alpha"; // Nom fixe pour forcer la rencontre
 

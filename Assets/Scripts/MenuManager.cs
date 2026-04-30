@@ -15,7 +15,6 @@ public class MenuManager : MonoBehaviour
 
     [Header("UI Elements")]
     public TMP_InputField nicknameField;
-    public TextMeshProUGUI lobbyStatusText;
     public Button searchButton;
 
     [Header("Lobby List")]
@@ -54,8 +53,6 @@ public class MenuManager : MonoBehaviour
     // On ajoute le paramètre Player[] pour recevoir la liste de Photon
     public void UpdateLobbyUI(int current, int max, Player[] photonPlayers)
     {
-        lobbyStatusText.text = $"En attente de joueurs... ({current}/{max})";
-
         // On parcourt tous les slots disponibles dans ton interface
         for (int i = 0; i < playerLobbyInfos.Count; i++)
         {
