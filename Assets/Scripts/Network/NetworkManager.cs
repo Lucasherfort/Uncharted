@@ -1,6 +1,7 @@
 using UnityEngine;
 using Photon.Pun;
 using Photon.Realtime;
+using ExitGames.Client.Photon;
 
 public class NetworkManager : MonoBehaviourPunCallbacks
 {
@@ -9,7 +10,8 @@ public class NetworkManager : MonoBehaviourPunCallbacks
     [Header("Settings")]
     [SerializeField] private byte maxPlayersPerRoom = 10;
     [SerializeField] private string gameVersion = "1.0";
-    [SerializeField] private string roomName = "SurvivalRoom_Alpha";
+
+    private int selectedGameMode = 0; // 0 = Survie, 1 = Deathmatch
 
     void Awake()
     {
@@ -31,75 +33,82 @@ public class NetworkManager : MonoBehaviourPunCallbacks
     // 🔌 CONNEXION
     // =========================
 
-    public void ConnectAndJoin(string nickname)
+    public void ConnectAndJoin(string nickname, int gameMode)
     {
         PhotonNetwork.NickName = nickname;
+        selectedGameMode = gameMode;
 
         if (PhotonNetwork.IsConnected)
         {
-            Debug.Log("[Network] Déjà connecté");
             JoinOrCreateRoom();
         }
         else
         {
-            Debug.Log("[Network] Connexion...");
             PhotonNetwork.ConnectUsingSettings();
         }
     }
 
     public override void OnConnectedToMaster()
     {
-        Debug.Log("[Network] Connecté au Master");
         JoinOrCreateRoom();
     }
 
     void JoinOrCreateRoom()
     {
+        Hashtable props = new Hashtable
+        {
+            { "gm", selectedGameMode }
+        };
+
         RoomOptions options = new RoomOptions
         {
             MaxPlayers = maxPlayersPerRoom,
-            IsVisible = true
+            IsVisible = true,
+            CustomRoomProperties = props,
+            CustomRoomPropertiesForLobby = new string[] { "gm" }
         };
 
-        Debug.Log("[Network] JoinOrCreate Room");
-        PhotonNetwork.JoinOrCreateRoom(roomName, options, TypedLobby.Default);
+        Debug.Log($"[Network] Matchmaking mode = {selectedGameMode}");
+
+        PhotonNetwork.JoinRandomOrCreateRoom(
+            props,
+            maxPlayersPerRoom,
+            MatchmakingMode.FillRoom,
+            TypedLobby.Default,
+            null,
+            null,
+            options
+        );
     }
 
     // =========================
     // 🏠 ROOM
     // =========================
 
-public override void OnJoinedRoom()
-{
-    Debug.Log($"[Network] Room: {PhotonNetwork.CurrentRoom.Name}");
-
-    // 🔥 D'abord afficher le lobby
-    if (MenuManager.Instance != null)
+    public override void OnJoinedRoom()
     {
-        MenuManager.Instance.SwitchToLobby();
-    }
+        Debug.Log($"Joined Room ({PhotonNetwork.CurrentRoom.PlayerCount})");
 
-    // 🔥 Ensuite mettre à jour
-    RefreshLobbyStatus();
-    CheckRoomState();
-}
+        if (MenuManager.Instance != null)
+        {
+            MenuManager.Instance.SwitchToLobby();
+        }
+
+        RefreshLobbyStatus();
+        CheckRoomState();
+    }
 
     public override void OnPlayerEnteredRoom(Player newPlayer)
     {
-        Debug.Log($"[Network] {newPlayer.NickName} joined");
-
         RefreshLobbyStatus();
         CheckRoomState();
     }
 
     public override void OnPlayerLeftRoom(Player otherPlayer)
     {
-        Debug.Log($"[Network] {otherPlayer.NickName} left");
-
         RefreshLobbyStatus();
         CheckRoomState();
 
-        // 🔥 GAME LOGIC uniquement (pas de Destroy réseau)
         if (SurvivalManager.Instance != null)
         {
             SurvivalManager.Instance.OnPlayerLeftGame(otherPlayer);
@@ -107,7 +116,7 @@ public override void OnJoinedRoom()
     }
 
     // =========================
-    // 🎮 GAME START
+    // 🎮 START GAME
     // =========================
 
     public void StartGame()
@@ -115,12 +124,19 @@ public override void OnJoinedRoom()
         if (!PhotonNetwork.IsMasterClient)
             return;
 
-        Debug.Log("[Network] Start Game");
-
         PhotonNetwork.CurrentRoom.IsOpen = false;
         PhotonNetwork.CurrentRoom.IsVisible = false;
 
-        PhotonNetwork.LoadLevel("Survival");
+        int gm = (int)PhotonNetwork.CurrentRoom.CustomProperties["gm"];
+
+        if (gm == 0)
+        {
+            PhotonNetwork.LoadLevel("Survival");
+        }
+        else if (gm == 1)
+        {
+            PhotonNetwork.LoadLevel("Deathmatch");
+        }
     }
 
     // =========================
@@ -129,11 +145,8 @@ public override void OnJoinedRoom()
 
     void RefreshLobbyStatus()
     {
-        if (PhotonNetwork.CurrentRoom == null)
-            return;
-
-        if (MenuManager.Instance == null)
-            return;
+        if (PhotonNetwork.CurrentRoom == null) return;
+        if (MenuManager.Instance == null) return;
 
         MenuManager.Instance.UpdateLobbyUI(
             PhotonNetwork.CurrentRoom.PlayerCount,
@@ -149,13 +162,6 @@ public override void OnJoinedRoom()
 
         int current = PhotonNetwork.CurrentRoom.PlayerCount;
 
-        if (current >= maxPlayersPerRoom)
-        {
-            PhotonNetwork.CurrentRoom.IsOpen = false;
-        }
-        else
-        {
-            PhotonNetwork.CurrentRoom.IsOpen = true;
-        }
+        PhotonNetwork.CurrentRoom.IsOpen = current < maxPlayersPerRoom;
     }
 }

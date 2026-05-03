@@ -11,81 +11,89 @@ public class MenuManager : MonoBehaviour
 
     [Header("Panels")]
     public GameObject panelProfile;
+    public GameObject panelMatchmaking;
     public GameObject panelLobby;
 
     [Header("UI Elements")]
     public TMP_InputField nicknameField;
     public Button searchButton;
 
+    [Header("Game Mode")]
+    public TMP_Dropdown gameModeDropdown; // 0 = Survie, 1 = Deathmatch
+
     [Header("Lobby List")]
-    // Liste de tes scripts/objets attachés à tes slots UI
     public List<PlayerLobbyInfo> playerLobbyInfos = new List<PlayerLobbyInfo>();
 
-    public Button startGameButton; // Bouton pour démarrer la partie (visible uniquement par le MasterClient)
+    public Button startGameButton;
 
     void Awake() => Instance = this;
 
     void Start()
     {
         panelProfile.SetActive(true);
+        panelMatchmaking.SetActive(false);
         panelLobby.SetActive(false);
     }
 
-    public void OnClickSearch()
+    // 👉 bouton "Game Search"
+    public void OnClickGameSearch()
     {
-        if (!string.IsNullOrEmpty(nicknameField.text))
-        {
-            searchButton.interactable = false;
-            NetworkManager.Instance.ConnectAndJoin(nicknameField.text);
-        }
+        panelProfile.SetActive(false);
+        panelMatchmaking.SetActive(true);
+    }
+
+    // 👉 bouton "Find Game"
+    public void OnClickFindGame()
+    {
+        if (string.IsNullOrEmpty(nicknameField.text))
+            return;
+
+        searchButton.interactable = false;
+
+        int selectedMode = gameModeDropdown.value;
+
+        NetworkManager.Instance.ConnectAndJoin(nicknameField.text, selectedMode);
     }
 
     public void SwitchToLobby()
     {
         panelProfile.SetActive(false);
+        panelMatchmaking.SetActive(false);
         panelLobby.SetActive(true);
 
-        // Reset visuel à l'entrée
+        // reset visuel
         foreach (var info in playerLobbyInfos)
         {
             info.playerNicknameText.text = "<color=#666666>En attente...</color>";
         }
     }
 
-    // On ajoute le paramètre Player[] pour recevoir la liste de Photon
     public void UpdateLobbyUI(int current, int max, Player[] photonPlayers)
     {
-        // On parcourt tous les slots disponibles dans ton interface
         for (int i = 0; i < playerLobbyInfos.Count; i++)
         {
-            // Si on a un joueur correspondant à cet index dans la liste Photon
             if (i < photonPlayers.Length)
             {
                 Player p = photonPlayers[i];
-                string displayName = p.NickName;
+                string name = p.NickName;
 
-                if (p.IsLocal) displayName += " <color=green>(Moi)</color>";
-                if (p.IsMasterClient) displayName += " <color=yellow>[Hôte]</color>";
+                if (p.IsLocal) name += " <color=green>(Moi)</color>";
+                if (p.IsMasterClient) name += " <color=yellow>[Hôte]</color>";
 
-                playerLobbyInfos[i].playerNicknameText.text = displayName;
+                playerLobbyInfos[i].playerNicknameText.text = name;
             }
             else
             {
-                // Slot vide si moins de joueurs que de slots
-                playerLobbyInfos[i].playerNicknameText.text = "<color=#666666>Recherche de joueur...</color>";
+                playerLobbyInfos[i].playerNicknameText.text = "<color=#666666>Recherche...</color>";
             }
         }
 
-        // 2. Gestion du bouton Start : Visible uniquement pour le MasterClient
-        // On peut aussi ajouter une condition : && current >= 2 pour forcer à être au moins deux
-
-        if(startGameButton != null)
+        if (startGameButton != null)
         {
             startGameButton.gameObject.SetActive(PhotonNetwork.IsMasterClient);
         }
     }
 
-    // Fonction à lier au bouton dans l'Inspecteur Unity
     public void OnClickStartGame()
     {
         if (PhotonNetwork.IsMasterClient)
