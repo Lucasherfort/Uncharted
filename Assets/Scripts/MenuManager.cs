@@ -78,7 +78,11 @@ public class MenuManager : MonoBehaviour
 
         // 2. Gestion du bouton Start : Visible uniquement pour le MasterClient
         // On peut aussi ajouter une condition : && current >= 2 pour forcer à être au moins deux
-        startGameButton.gameObject.SetActive(PhotonNetwork.IsMasterClient);
+
+        if(startGameButton != null)
+        {
+            startGameButton.gameObject.SetActive(PhotonNetwork.IsMasterClient);
+        }
     }
 
     // Fonction à lier au bouton dans l'Inspecteur Unity

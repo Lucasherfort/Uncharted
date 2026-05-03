@@ -5,11 +5,11 @@ using Photon.Realtime;
 public class NetworkManager : MonoBehaviourPunCallbacks
 {
     public static NetworkManager Instance;
-    
+
     [Header("Settings")]
     [SerializeField] private byte maxPlayersPerRoom = 10;
     [SerializeField] private string gameVersion = "1.0";
-    [SerializeField] private string roomName = "SurvivalRoom_Alpha"; // Nom fixe pour forcer la rencontre
+    [SerializeField] private string roomName = "SurvivalRoom_Alpha";
 
     void Awake()
     {
@@ -17,6 +17,7 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
+
             PhotonNetwork.AutomaticallySyncScene = true;
             PhotonNetwork.GameVersion = gameVersion;
         }
@@ -26,118 +27,135 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         }
     }
 
+    // =========================
+    // 🔌 CONNEXION
+    // =========================
+
     public void ConnectAndJoin(string nickname)
     {
         PhotonNetwork.NickName = nickname;
 
         if (PhotonNetwork.IsConnected)
         {
-            Debug.Log("<color=cyan>[Network]</color> Déjà connecté, accès à la salle...");
-            JoinOrCreateSurvivalRoom();
+            Debug.Log("[Network] Déjà connecté");
+            JoinOrCreateRoom();
         }
         else
         {
-            Debug.Log("<color=cyan>[Network]</color> Connexion aux serveurs Photon...");
+            Debug.Log("[Network] Connexion...");
             PhotonNetwork.ConnectUsingSettings();
         }
     }
 
     public override void OnConnectedToMaster()
     {
-        Debug.Log("<color=green>[Network]</color> Connecté au Master Server. Région : " + PhotonNetwork.CloudRegion);
-        JoinOrCreateSurvivalRoom();
+        Debug.Log("[Network] Connecté au Master");
+        JoinOrCreateRoom();
     }
 
-    private void JoinOrCreateSurvivalRoom()
+    void JoinOrCreateRoom()
     {
-        RoomOptions options = new RoomOptions();
-        options.MaxPlayers = maxPlayersPerRoom;
-        // Propriétés pour le matchmaking (au cas où)
-        options.CustomRoomProperties = new ExitGames.Client.Photon.Hashtable { { "gm", 0 } };
-        options.CustomRoomPropertiesForLobby = new string[] { "gm" };
+        RoomOptions options = new RoomOptions
+        {
+            MaxPlayers = maxPlayersPerRoom,
+            IsVisible = true
+        };
 
-        Debug.Log("<color=cyan>[Network]</color> Tentative JoinOrCreate de la salle : " + roomName);
+        Debug.Log("[Network] JoinOrCreate Room");
         PhotonNetwork.JoinOrCreateRoom(roomName, options, TypedLobby.Default);
     }
 
-    public override void OnJoinedRoom()
+    // =========================
+    // 🏠 ROOM
+    // =========================
+
+public override void OnJoinedRoom()
+{
+    Debug.Log($"[Network] Room: {PhotonNetwork.CurrentRoom.Name}");
+
+    // 🔥 D'abord afficher le lobby
+    if (MenuManager.Instance != null)
     {
-        Debug.Log($"<color=green>[Network]</color> Salle rejointe : {PhotonNetwork.CurrentRoom.Name}. Joueurs : {PhotonNetwork.CurrentRoom.PlayerCount}");
         MenuManager.Instance.SwitchToLobby();
-        RefreshLobbyStatus();
-        CheckFullRoom();
     }
+
+    // 🔥 Ensuite mettre à jour
+    RefreshLobbyStatus();
+    CheckRoomState();
+}
 
     public override void OnPlayerEnteredRoom(Player newPlayer)
     {
-        Debug.Log($"<color=yellow>[Network]</color> {newPlayer.NickName} est entré dans la salle.");
+        Debug.Log($"[Network] {newPlayer.NickName} joined");
+
         RefreshLobbyStatus();
-        CheckFullRoom();
+        CheckRoomState();
     }
 
-private void RefreshLobbyStatus()
-{
-    if (PhotonNetwork.CurrentRoom == null) return;
-
-    int current = PhotonNetwork.CurrentRoom.PlayerCount;
-    int max = PhotonNetwork.CurrentRoom.MaxPlayers;
-    
-    // On passe la liste des joueurs connectés
-    MenuManager.Instance.UpdateLobbyUI(current, max, PhotonNetwork.PlayerList);
-}
-
-private void CheckFullRoom()
+    public override void OnPlayerLeftRoom(Player otherPlayer)
     {
-        if (PhotonNetwork.IsMasterClient)
+        Debug.Log($"[Network] {otherPlayer.NickName} left");
+
+        RefreshLobbyStatus();
+        CheckRoomState();
+
+        // 🔥 GAME LOGIC uniquement (pas de Destroy réseau)
+        if (SurvivalManager.Instance != null)
         {
-            int current = PhotonNetwork.CurrentRoom.PlayerCount;
-            
-            if (current >= maxPlayersPerRoom)
-            {
-                Debug.Log("<color=green>[Network]</color> Salle pleine. Fermeture des entrées.");
-                PhotonNetwork.CurrentRoom.IsOpen = false; 
-                // PhotonNetwork.LoadLevel("Survival"); 
-            }
-            else
-            {
-                // IMPORTANT : Si on n'est plus assez, on réouvre la porte !
-                if (!PhotonNetwork.CurrentRoom.IsOpen)
-                {
-                    Debug.Log("<color=yellow>[Network]</color> Place libérée. Réouverture de la salle.");
-                    PhotonNetwork.CurrentRoom.IsOpen = true;
-                }
-            }
+            SurvivalManager.Instance.OnPlayerLeftGame(otherPlayer);
         }
     }
 
-    // Appelé automatiquement par Photon quand UN AUTRE joueur quitte la room
-    /// <summary>
-    /// Called automatically by Photon when another player leaves the room.
-    /// </summary>
-    /// <param name="otherPlayer">The player who left the room.</param>
-    public override void OnPlayerLeftRoom(Player otherPlayer)
-    {
-        Debug.Log($"<color=orange>[Network]</color> {otherPlayer.NickName} a quitté la salle.");
-    
-        // On rafraîchit l'affichage pour libérer le slot
-        RefreshLobbyStatus();
-
-        // On vérifie s'il faut réouvrir la salle maintenant qu'il y a de la place
-        CheckFullRoom();
-    }
+    // =========================
+    // 🎮 GAME START
+    // =========================
 
     public void StartGame()
     {
-        if (PhotonNetwork.IsMasterClient)
-        {
-            Debug.Log("<color=green>[Network]</color> Le Master lance la partie !");
-            
-            // On ferme la salle pour que personne ne puisse rejoindre pendant le chargement
-            PhotonNetwork.CurrentRoom.IsOpen = false;
-            PhotonNetwork.CurrentRoom.IsVisible = false;
+        if (!PhotonNetwork.IsMasterClient)
+            return;
 
-            // On charge la scène de jeu
-            PhotonNetwork.LoadLevel("Survival"); 
+        Debug.Log("[Network] Start Game");
+
+        PhotonNetwork.CurrentRoom.IsOpen = false;
+        PhotonNetwork.CurrentRoom.IsVisible = false;
+
+        PhotonNetwork.LoadLevel("Survival");
+    }
+
+    // =========================
+    // 🧠 UTILS
+    // =========================
+
+    void RefreshLobbyStatus()
+    {
+        if (PhotonNetwork.CurrentRoom == null)
+            return;
+
+        if (MenuManager.Instance == null)
+            return;
+
+        MenuManager.Instance.UpdateLobbyUI(
+            PhotonNetwork.CurrentRoom.PlayerCount,
+            PhotonNetwork.CurrentRoom.MaxPlayers,
+            PhotonNetwork.PlayerList
+        );
+    }
+
+    void CheckRoomState()
+    {
+        if (!PhotonNetwork.IsMasterClient || PhotonNetwork.CurrentRoom == null)
+            return;
+
+        int current = PhotonNetwork.CurrentRoom.PlayerCount;
+
+        if (current >= maxPlayersPerRoom)
+        {
+            PhotonNetwork.CurrentRoom.IsOpen = false;
+        }
+        else
+        {
+            PhotonNetwork.CurrentRoom.IsOpen = true;
         }
     }
 }

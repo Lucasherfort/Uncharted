@@ -55,6 +55,7 @@ MonoBehaviour:
   - RPC_ShootSound
   - RPC_Respawn
   - RPC_IReadiedUp
+  - RPC_PlayerReady
   DisableAutoOpenWizard: 1
   ShowSettings: 1
   DevRegionSetOnce: 1
