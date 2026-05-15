@@ -25,16 +25,16 @@ public class PlayerHealth : MonoBehaviourPun
         UpdateUI();
     }
 
-    public void ApplyDamageLocal(float amount)
+    public void ApplyDamageLocal(float amount, string attackerName)
     {
         if (!photonView.IsMine) return;
         if (isDead) return;
 
-        photonView.RPC(nameof(RPC_TakeDamage), RpcTarget.All, amount);
+        photonView.RPC(nameof(RPC_TakeDamage), RpcTarget.All, amount, attackerName);
     }
 
     [PunRPC]
-    void RPC_TakeDamage(float amount)
+    void RPC_TakeDamage(float amount, string attackerName)
     {
         currentHealth -= amount;
         currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
@@ -51,6 +51,7 @@ public class PlayerHealth : MonoBehaviourPun
         if (currentHealth <= 0 && !isDead)
         {
             isDead = true;
+            Debug.Log($"{attackerName} a tué {photonView.Owner.NickName}");
             // On informe tout le monde que ce joueur est mort
             photonView.RPC(nameof(RPC_Die), RpcTarget.All);
         }

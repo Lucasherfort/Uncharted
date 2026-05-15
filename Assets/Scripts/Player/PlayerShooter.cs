@@ -120,7 +120,7 @@ public class PlayerShooter : MonoBehaviourPun
             PhotonView targetView = hit.transform.GetComponent<PhotonView>();
             if (targetView != null)
             {
-                photonView.RPC(nameof(RPC_DealDamagePlayer), RpcTarget.All, targetView.Owner.ActorNumber, damage);
+                photonView.RPC(nameof(RPC_DealDamagePlayer), RpcTarget.All, targetView.Owner.ActorNumber, damage, photonView.Owner.NickName);
                 
                 // Effet visuel local
                 ShowHitmarker();
@@ -147,7 +147,7 @@ public class PlayerShooter : MonoBehaviourPun
         hitmarkerImage.color = Color.white; // Revient au blanc
     }
 
-    [PunRPC] void RPC_DealDamagePlayer(int actorNumber, float dmg)
+    [PunRPC] void RPC_DealDamagePlayer(int actorNumber, float dmg, string shooterName)
     {
         PlayerHealth[] players = FindObjectsOfType<PlayerHealth>();
         foreach (var p in players)
@@ -156,7 +156,7 @@ public class PlayerShooter : MonoBehaviourPun
             if (pv != null && pv.Owner.ActorNumber == actorNumber)
             {
                 if (pv.IsMine)
-                    p.ApplyDamageLocal(dmg);
+                    p.ApplyDamageLocal(dmg, shooterName);
             }
         }
     }
