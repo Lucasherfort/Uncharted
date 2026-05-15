@@ -72,7 +72,10 @@ Assets/
   SurvivalManager.cs
  Scripts/
   MenuManager.cs
-  Network/NetworkManager.cs
+  Network/
+   KillFeedUI.cs
+   KillItemUI.cs
+   NetworkManager.cs
   Player/
    DamageEffect.cs
    PlayerController.cs
