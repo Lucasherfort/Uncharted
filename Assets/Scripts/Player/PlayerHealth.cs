@@ -51,7 +51,12 @@ public class PlayerHealth : MonoBehaviourPun
         if (currentHealth <= 0 && !isDead)
         {
             isDead = true;
-            Debug.Log($"{attackerName} a tué {photonView.Owner.NickName}");
+
+            if (photonView.IsMine)
+            {
+                DeathmatchManager.Instance.photonView.RPC(nameof(DeathmatchManager.RPC_AddKillFeed),RpcTarget.All,attackerName,photonView.Owner.NickName);
+            }
+
             // On informe tout le monde que ce joueur est mort
             photonView.RPC(nameof(RPC_Die), RpcTarget.All);
         }

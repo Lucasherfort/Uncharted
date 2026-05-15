@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class DeathmatchManager : MonoBehaviourPunCallbacks
 {
-        public static DeathmatchManager Instance;
+    public static DeathmatchManager Instance;
 
     [Header("Settings")]
     public GameObject playerPrefab;
@@ -68,4 +68,12 @@ public class DeathmatchManager : MonoBehaviourPunCallbacks
 
         // ❗ NE PAS détruire les objets Photon ici
     }
+
+    [PunRPC]
+public void RPC_AddKillFeed(string killer, string killed)
+{
+    KillFeedUI.Instance.AddKill(killer, killed);
+
+    Debug.Log($"{killer} a tué {killed}");
+}
 }
