@@ -80,11 +80,13 @@ public class MenuManager : MonoBehaviour
                 if (p.IsLocal) name += " <color=green>(Moi)</color>";
                 if (p.IsMasterClient) name += " <color=yellow>[Hôte]</color>";
 
-                playerLobbyInfos[i].playerNicknameText.text = name;
+                Sprite avatar = Resources.Load<Sprite>("Level/" + (p.CustomProperties.ContainsKey("Level") ? p.CustomProperties["Level"] : 1)); 
+
+                playerLobbyInfos[i].SetPlayerInfo(name, avatar);
             }
             else
             {
-                playerLobbyInfos[i].playerNicknameText.text = "<color=#666666>Recherche...</color>";
+                playerLobbyInfos[i].SetSearchingState();
             }
         }
 

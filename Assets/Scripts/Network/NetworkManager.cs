@@ -38,6 +38,14 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         PhotonNetwork.NickName = nickname;
         selectedGameMode = gameMode;
 
+        // 👇 propriétés joueur
+        Hashtable playerProps = new()
+        {
+            { "Level", 1 } 
+        };
+
+        PhotonNetwork.LocalPlayer.SetCustomProperties(playerProps);
+
         if (PhotonNetwork.IsConnected)
         {
             JoinOrCreateRoom();
