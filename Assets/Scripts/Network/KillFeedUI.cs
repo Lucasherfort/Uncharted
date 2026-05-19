@@ -25,10 +25,18 @@ public class KillFeedUI : MonoBehaviour
             availableItems.Enqueue(item);
         }
     }
-
     public void AddKill(string killer, string killed)
     {
-        StartCoroutine(ShowKillRoutine(killer, killed));
+        KillItemUI item = GetFreeItem();
+
+        if (item == null)
+            return;
+
+        item.gameObject.SetActive(true);
+        item.Setup(killer, killed);
+        item.transform.SetAsLastSibling();
+
+        StartCoroutine(AutoHide(item));
     }
 
     IEnumerator ShowKillRoutine(string killer, string killed)
@@ -59,4 +67,23 @@ public class KillFeedUI : MonoBehaviour
 
         availableItems.Enqueue(item);
     }
+
+    KillItemUI GetFreeItem()
+{
+    foreach (var item in items)
+    {
+        if (!item.isBusy)
+            return item;
+    }
+
+    // fallback (overwrite le plus ancien actif)
+    return items[0];
+}
+
+IEnumerator AutoHide(KillItemUI item)
+{
+    yield return new WaitForSeconds(visibleTime);
+
+    item.Release();
+}
 }

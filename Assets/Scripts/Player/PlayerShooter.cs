@@ -41,6 +41,9 @@ public class PlayerShooter : MonoBehaviourPun
 
     private PlayerInputActions input;
 
+    [Header("Kill")]
+    public AudioClip killSound;
+
     void Awake()
     {
         input = new PlayerInputActions();
@@ -185,5 +188,10 @@ public class PlayerShooter : MonoBehaviourPun
     {
         if (ammoTxt)
             ammoTxt.text = infiniteAmmo ? "∞ / ∞" : currentAmmo + " / " + totalAmmo;
+    }
+
+    public void PlayKillSound()
+    {
+        Play(killSound);
     }
 }

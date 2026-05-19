@@ -111,6 +111,25 @@ public class PlayerHealth : MonoBehaviourPun
                 attacker.SetCustomProperties(props);
             }
 
+            // Le joueur local est-il celui qui a fait le kill ?
+if (PhotonNetwork.LocalPlayer.ActorNumber == attackerActorNumber)
+{
+    PlayerShooter[] shooters = FindObjectsOfType<PlayerShooter>();
+
+    foreach (var shooter in shooters)
+    {
+        PhotonView pv = shooter.GetComponent<PhotonView>();
+
+        if (pv != null && pv.Owner.ActorNumber == attackerActorNumber)
+        {
+            if (pv.IsMine)
+            {
+                shooter.PlayKillSound();
+            }
+        }
+    }
+}
+
             photonView.RPC(nameof(RPC_Die), RpcTarget.All);
         }
     }

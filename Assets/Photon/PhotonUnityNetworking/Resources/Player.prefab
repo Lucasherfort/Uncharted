@@ -290,6 +290,7 @@ MonoBehaviour:
   hitmarkerImage: {fileID: 8698195911278384561}
   hitColor: {r: 1, g: 0, b: 0, a: 1}
   hitmarkerDuration: 0.5
+  killSound: {fileID: 8300000, guid: d8e8b75cc723774438e57e08b2d08dec, type: 3}
 --- !u!82 &8819763860364184765
 AudioSource:
   m_ObjectHideFlags: 0
