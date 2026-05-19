@@ -168,7 +168,7 @@ public class EnemyController : MonoBehaviourPun
             {
                 if (pv.IsMine)
                 {
-                    p.ApplyDamageLocal(damage,"Zombie");
+                    p.ApplyDamageLocal(damage,0);
                 }
             }
         }

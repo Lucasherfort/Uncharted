@@ -70,10 +70,9 @@ public class DeathmatchManager : MonoBehaviourPunCallbacks
     }
 
     [PunRPC]
-public void RPC_AddKillFeed(string killer, string killed)
-{
-    KillFeedUI.Instance.AddKill(killer, killed);
-
-    Debug.Log($"{killer} a tué {killed}");
-}
+    public void RPC_AddKillFeed(string killer, string killed)
+    {
+        KillFeedUI.Instance.AddKill(killer, killed);
+        Debug.Log($"{killer} a tué {killed}");
+    }
 }

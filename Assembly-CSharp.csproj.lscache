@@ -69,6 +69,7 @@ Assets/
  Photon/PhotonRealtime/Demos/DemoLoadBalancing/ConnectAndJoinRandomLb.cs
  Scripts/Game/
   DeathmatchManager.cs
+  ScoreManager.cs
   SurvivalManager.cs
  Scripts/
   MenuManager.cs

@@ -120,8 +120,9 @@ public class PlayerShooter : MonoBehaviourPun
             PhotonView targetView = hit.transform.GetComponent<PhotonView>();
             if (targetView != null)
             {
-                photonView.RPC(nameof(RPC_DealDamagePlayer), RpcTarget.All, targetView.Owner.ActorNumber, damage, photonView.Owner.NickName);
-                
+                // On envoie : l'ID de la victime, les dégâts, et l'ID de l'attaquant (nous)
+                photonView.RPC(nameof(RPC_DealDamagePlayer), RpcTarget.All, targetView.Owner.ActorNumber, damage, photonView.Owner.ActorNumber);
+    
                 // Effet visuel local
                 ShowHitmarker();
             }
@@ -147,16 +148,25 @@ public class PlayerShooter : MonoBehaviourPun
         hitmarkerImage.color = Color.white; // Revient au blanc
     }
 
-    [PunRPC] void RPC_DealDamagePlayer(int actorNumber, float dmg, string shooterName)
+    [PunRPC] 
+    void RPC_DealDamagePlayer(int victimActorNumber, float amount, int attackerActorNumber)
     {
+        // 1. On cherche tous les scripts de vie dans la scène
         PlayerHealth[] players = FindObjectsOfType<PlayerHealth>();
+        
         foreach (var p in players)
         {
             PhotonView pv = p.GetComponent<PhotonView>();
-            if (pv != null && pv.Owner.ActorNumber == actorNumber)
+            
+            // 2. On cherche le joueur qui a le VICTIM Actor Number (celui qui s'est pris la balle)
+            if (pv != null && pv.Owner.ActorNumber == victimActorNumber)
             {
+                // 3. Seule la victime applique les dégâts localement sur sa machine
                 if (pv.IsMine)
-                    p.ApplyDamageLocal(dmg, shooterName);
+                {
+                    // Elle s'applique les dégâts en enregistrant bien l'ID de l'attaquant pour le score
+                    p.ApplyDamageLocal(amount, attackerActorNumber);
+                }
             }
         }
     }
