@@ -2,7 +2,7 @@ using ExitGames.Client.Photon.StructWrapping;
 using UnityEngine;
 
 [RequireComponent(typeof(Photon.Pun.PhotonView))]
-public class PlayerController :     MonoBehaviour
+public class PlayerController : MonoBehaviour
 {
     [Header("References")]
     public CharacterController controller;
@@ -61,16 +61,18 @@ public class PlayerController :     MonoBehaviour
         input.Player.Disable();
     }
 
-void Start()
-{
-    photonView = GetComponent<Photon.Pun.PhotonView>();
-
-    if (!photonView.IsMine)
+    void Start()
     {
-        playerCamera.enabled = false;     
-        GetComponentInChildren<Canvas>().enabled = false;
+        photonView = GetComponent<Photon.Pun.PhotonView>();
+
+        if (!photonView.IsMine)
+        {
+            playerCamera.enabled = false;     
+            // Sécurité si un joueur n'a pas de Canvas local sur son prefab
+            Canvas localCanvas = GetComponentInChildren<Canvas>();
+            if (localCanvas != null) localCanvas.enabled = false;
+        }
     }
-}
 
     void Update()
     {
@@ -134,5 +136,20 @@ void Start()
 
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
+    }
+
+    // --- CORRECTION DU SPAM / CORRUPTION DE POSITION ---
+    // Cette méthode est appelée par PlayerHealth lors du RPC_Respawn
+    public void ResetVerticalVelocity()
+    {
+        // On remet la gravité à zéro pour couper l'effet de chute accumulée
+        velocity = Vector3.zero;
+
+        // Sécurité anti-glissade : on vide les inputs accumulés pendant l'état de mort
+        moveInput = Vector2.zero;
+        currentMove = Vector2.zero;
+        currentMoveVelocity = Vector2.zero;
+        
+        Debug.Log("<color=yellow>[PlayerController]</color> Vélocité et inputs réinitialisés pour le Respawn.");
     }
 }

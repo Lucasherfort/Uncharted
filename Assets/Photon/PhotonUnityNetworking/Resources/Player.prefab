@@ -399,6 +399,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 100
+  regenDelay: 5
+  regenAmount: 2
+  regenInterval: 1
   healthText: {fileID: 6224233086382242979}
   respawnDelay: 3
   damageEffect: {fileID: 3325176134186260608}
