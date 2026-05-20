@@ -115,7 +115,6 @@ public AudioSource uiAudioSource;
             if (hit.transform.TryGetComponent<ZombieHealth>(out var zombie))
             {
                 zombie.TakeDamage(damage);
-                photonView.RPC(nameof(RPC_HitSound), RpcTarget.All);
                 
                 // Effet visuel local
                 ShowHitmarker();
