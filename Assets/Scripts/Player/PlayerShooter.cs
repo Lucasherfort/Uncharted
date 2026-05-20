@@ -104,35 +104,66 @@ public AudioSource uiAudioSource;
     }
 
     void Shoot()
+{
+    // Le son du tir est envoyé à tout le monde
+    photonView.RPC(nameof(RPC_ShootSound), RpcTarget.All);
+
+    Ray ray = new Ray(fpsCamera.transform.position, fpsCamera.transform.forward);
+
+    if (Physics.Raycast(ray, out RaycastHit hit, range))
     {
-        photonView.RPC(nameof(RPC_ShootSound), RpcTarget.All);
+        // 1. DÉTECTION DU MODE DE JEU ACTIF
+        bool isSurvivalMode = (SurvivalManager.Instance != null);
+        bool isDeathmatchMode = (DeathmatchManager.Instance != null);
 
-        Ray ray = new Ray(fpsCamera.transform.position, fpsCamera.transform.forward);
-
-        if (Physics.Raycast(ray, out RaycastHit hit, range))
+        // ==========================================
+        // --- MODE SURVIE (ZOMBIES) ---
+        // ==========================================
+        if (isSurvivalMode)
         {
-            // --- CIBLE : ZOMBIE ---
             if (hit.transform.TryGetComponent<ZombieHealth>(out var zombie))
             {
                 zombie.TakeDamage(damage);
-                
-                // Effet visuel local
                 ShowHitmarker();
-                return;
+                return; // On a touché un zombie, on arrête le raycast ici
             }
-
-            // --- CIBLE : JOUEUR ---
-            PhotonView targetView = hit.transform.GetComponent<PhotonView>();
-            if (targetView != null)
+            
+            // Optionnel : On peut ignorer ou bloquer le tir sur les joueurs alliés ici
+            if (hit.transform.GetComponent<PhotonView>() != null)
             {
-                // On envoie : l'ID de la victime, les dégâts, et l'ID de l'attaquant (nous)
-                photonView.RPC(nameof(RPC_DealDamagePlayer), RpcTarget.All, targetView.Owner.ActorNumber, damage, photonView.Owner.ActorNumber);
-    
-                // Effet visuel local
+                Debug.Log("[SHOOT] Mode Survie actif : Le tir allié sur les joueurs est désactivé.");
+                return; 
+            }
+        }
+
+        // ==========================================
+        // --- MODE DEATHMATCH (JOUEURS) ---
+        // ==========================================
+        if (isDeathmatchMode)
+        {
+            PhotonView targetView = hit.transform.GetComponent<PhotonView>();
+            
+            // On vérifie qu'on a touché un PhotonView ET que ce n'est pas nous-mêmes
+            if (targetView != null && targetView.Owner != null && !targetView.IsMine)
+            {
+                Debug.Log($"[SHOOT] Hit player: {targetView.Owner.NickName}");
+
+                // CORRECTION SÉCURITÉ RÉSEAU : 
+                // On envoie le RPC UNIQUEMENT au propriétaire du personnage touché (targetView.Owner).
+                // Pas en RpcTarget.All, sinon tout le monde lui applique les dégâts en même temps.
+                targetView.RPC(
+                    "RPC_TakeDamage", 
+                    targetView.Owner, 
+                    damage, 
+                    PhotonNetwork.LocalPlayer.ActorNumber
+                );
+
+                // Effet visuel local (Hitmarker)
                 ShowHitmarker();
             }
         }
     }
+}
 
     // --- LOGIQUE DU HITMARKER ---
     void ShowHitmarker()
