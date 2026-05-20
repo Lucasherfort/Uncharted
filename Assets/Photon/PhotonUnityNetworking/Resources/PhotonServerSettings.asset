@@ -59,6 +59,8 @@ MonoBehaviour:
   - RPC_AddKillFeed
   - RPC_ReceiveSpawnIndex
   - RPC_RequestSpawnIndex
+  - RPC_RegisterKill
+  - RPC_SendKillNotification
   DisableAutoOpenWizard: 1
   ShowSettings: 1
   DevRegionSetOnce: 1

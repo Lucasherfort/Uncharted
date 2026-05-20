@@ -67,7 +67,8 @@ public class PlayerController : MonoBehaviour
 
         if (!photonView.IsMine)
         {
-            playerCamera.enabled = false;     
+            playerCamera.enabled = false;   
+            playerCamera.GetComponent<AudioListener>().enabled = false;  
             // Sécurité si un joueur n'a pas de Canvas local sur son prefab
             Canvas localCanvas = GetComponentInChildren<Canvas>();
             if (localCanvas != null) localCanvas.enabled = false;
@@ -75,8 +76,8 @@ public class PlayerController : MonoBehaviour
         else
     {
         // Cache et verrouille le curseur
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        //Cursor.lockState = CursorLockMode.Locked;
+        //Cursor.visible = false;
     }
     }
 

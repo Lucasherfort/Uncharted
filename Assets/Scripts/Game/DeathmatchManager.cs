@@ -119,4 +119,34 @@ public class DeathmatchManager : MonoBehaviourPunCallbacks
         KillFeedUI.Instance.AddKill(killer, killed);
         Debug.Log($"{killer} a tué {killed}");
     }
+
+    [PunRPC]
+public void RPC_RegisterKill(int killerActorNumber)
+{
+    if (!PhotonNetwork.IsMasterClient)
+        return;
+
+    Player killer = PhotonNetwork.CurrentRoom.GetPlayer(killerActorNumber);
+
+    if (killer == null)
+    {
+        Debug.LogWarning("[MASTER] Killer NULL");
+        return;
+    }
+
+    int currentKills = 0;
+
+    if (killer.CustomProperties != null &&
+        killer.CustomProperties.TryGetValue("Kills", out object obj))
+    {
+        currentKills = (int)obj;
+    }
+
+    var props = new ExitGames.Client.Photon.Hashtable();
+    props["Kills"] = currentKills + 1;
+
+    killer.SetCustomProperties(props);
+
+    Debug.Log($"[MASTER] Kill updated for {killer.NickName} = {currentKills + 1}");
+}
 }

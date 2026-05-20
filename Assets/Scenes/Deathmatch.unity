@@ -15108,7 +15108,6 @@ GameObject:
   m_Component:
   - component: {fileID: 562202920}
   - component: {fileID: 562202919}
-  - component: {fileID: 562202918}
   - component: {fileID: 562202917}
   m_Layer: 0
   m_Name: Camera
@@ -15161,14 +15160,6 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
---- !u!81 &562202918
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 562202916}
-  m_Enabled: 1
 --- !u!20 &562202919
 Camera:
   m_ObjectHideFlags: 0
@@ -39307,6 +39298,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   killerText: {fileID: 697873250}
   killedText: {fileID: 1624037704}
+  isBusy: 0
 --- !u!1001 &1560512542
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -47332,6 +47324,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   killerText: {fileID: 67198440}
   killedText: {fileID: 1134914251}
+  isBusy: 0
 --- !u!114 &1912995819
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -48067,6 +48060,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   killerText: {fileID: 407545499}
   killedText: {fileID: 1265590618}
+  isBusy: 0
 --- !u!114 &1945153617
 MonoBehaviour:
   m_ObjectHideFlags: 0

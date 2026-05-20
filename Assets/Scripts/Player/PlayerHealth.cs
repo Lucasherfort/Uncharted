@@ -57,59 +57,70 @@ public void ApplyDamageLocal(float amount, int attackerActorNumber)
     RPC_TakeDamage(amount, attackerActorNumber);
 }
 [PunRPC]
-void RPC_TakeDamage(float amount, int attackerActorNumber)
-{
-    // Sécurité
-    if (isDead)
-        return;
-
-    // Application des dégâts
-    currentHealth -= amount;
-    currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
-
-    // Effet de dégâts local
-    damageEffect?.OnDamage();
-
-    // Stop regen
-    if (regenCoroutine != null)
+    void RPC_TakeDamage(float amount, int attackerActorNumber)
     {
-        StopCoroutine(regenCoroutine);
-    }
+        Debug.Log($"[DAMAGE] Received | Amount={amount} | Attacker={attackerActorNumber} | IsMine={photonView.IsMine}");
 
-    // Restart regen si vivant
-    if (currentHealth > 0)
-    {
-        regenCoroutine = StartCoroutine(RegenerationRoutine());
-    }
-
-    UpdateUI();
-
-    // =========================
-    // MORT
-    // =========================
-    if (currentHealth <= 0)
-    {
-        isDead = true;
-
-        // Stop regen définitif
-        if (regenCoroutine != null)
+        if (isDead)
         {
-            StopCoroutine(regenCoroutine);
+            Debug.Log("[DAMAGE] Ignored - already dead");
+            return;
         }
 
-        // Récupération attaquant
+        // =========================
+        // DAMAGE APPLY
+        // =========================
+        currentHealth -= amount;
+        currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
+
+        Debug.Log($"[DAMAGE] Health now: {currentHealth}");
+
+        if (damageEffect != null)
+            damageEffect.OnDamage();
+
+        if (regenCoroutine != null)
+            StopCoroutine(regenCoroutine);
+
+        if (currentHealth > 0)
+            regenCoroutine = StartCoroutine(RegenerationRoutine());
+
+        UpdateUI();
+
+        // =========================
+        // DEATH CHECK
+        // =========================
+        if (currentHealth > 0)
+            return;
+
+        isDead = true;
+
+        Debug.Log("[DEATH] Player died");
+
+        if (regenCoroutine != null)
+            StopCoroutine(regenCoroutine);
+
+        // =========================
+        // ATTACKER RESOLUTION
+        // =========================
         Player attacker = PhotonNetwork.CurrentRoom.GetPlayer(attackerActorNumber);
 
-        string attackerName =
-            attacker != null
-            ? attacker.NickName
-            : "Environnement";
+        if (attacker == null)
+        {
+            Debug.LogWarning("[DEATH] Attacker is NULL !");
+        }
+        else
+        {
+            Debug.Log($"[DEATH] Attacker found: {attacker.NickName} | Actor={attacker.ActorNumber}");
+        }
 
+        string attackerName = attacker != null ? attacker.NickName : "Environment";
         string killedName = photonView.Owner.NickName;
 
         // =========================
         // KILLFEED
         // =========================
+        Debug.Log("[KILLFEED] Sending RPC_AddKillFeed");
+
         DeathmatchManager.Instance.photonView.RPC(
             nameof(DeathmatchManager.RPC_AddKillFeed),
             RpcTarget.All,
@@ -118,54 +129,56 @@ void RPC_TakeDamage(float amount, int attackerActorNumber)
         );
 
         // =========================
-        // SCORE
+        // SCORE & KILL NOTIFICATION
         // =========================
-        if (PhotonNetwork.IsMasterClient &&
-            attacker != null &&
-            attacker != photonView.Owner)
+        if (attacker != null && attacker != photonView.Owner)
         {
-            int currentKills = 0;
+            // 1. On envoie le score au Master Client
+            Debug.Log("[KILL] Sending kill to Master");
+            DeathmatchManager.Instance.photonView.RPC(
+                nameof(DeathmatchManager.RPC_RegisterKill),
+                RpcTarget.MasterClient,
+                attackerActorNumber
+            );
 
-            if (attacker.CustomProperties.TryGetValue("Kills", out object killsObj))
-            {
-                currentKills = (int)killsObj;
-            }
-
-            ExitGames.Client.Photon.Hashtable props =
-                new ExitGames.Client.Photon.Hashtable();
-
-            props["Kills"] = currentKills + 1;
-
-            attacker.SetCustomProperties(props);
+            // 2. On envoie l'ordre de jouer le son UNIQUEMENT au tueur via son profil Photon Player
+            photonView.RPC(nameof(RPC_SendKillNotification), attacker);
         }
 
         // =========================
-        // KILL SOUND
-        // =========================
-        if (PhotonNetwork.LocalPlayer.ActorNumber == attackerActorNumber)
-        {
-            PlayerShooter[] shooters = FindObjectsOfType<PlayerShooter>();
-
-            foreach (var shooter in shooters)
-            {
-                PhotonView pv = shooter.GetComponent<PhotonView>();
-
-                if (pv != null &&
-                    pv.Owner.ActorNumber == attackerActorNumber &&
-                    pv.IsMine)
-                {
-                    shooter.PlayKillSound();
-                    break;
-                }
-            }
-        }
-
-        // =========================
-        // MORT VISUELLE
+        // DEATH VISUAL
         // =========================
         photonView.RPC(nameof(RPC_Die), RpcTarget.All);
     }
-}
+
+    /// <summary>
+    /// Ce RPC est reçu exclusivement par le joueur qui a fait le kill.
+    /// </summary>
+    [PunRPC]
+    void RPC_SendKillNotification()
+    {
+        Debug.Log("[SOUND] I am the killer! Searching for my local PlayerShooter to play the sound.");
+
+        // On cherche parmi tous les PlayerShooter de la scène celui qui m'appartient (IsMine)
+        PlayerShooter[] allShooters = FindObjectsOfType<PlayerShooter>();
+        bool soundPlayed = false;
+
+        foreach (PlayerShooter shooter in allShooters)
+        {
+            if (shooter.photonView != null && shooter.photonView.IsMine)
+            {
+                Debug.Log("[SOUND] Local PlayerShooter found. Playing kill sound!");
+                shooter.PlayKillSound();
+                soundPlayed = true;
+                break; // On a trouvé notre joueur, on arrête la recherche
+            }
+        }
+
+        if (!soundPlayed)
+        {
+            Debug.LogWarning("[SOUND] Could not play kill sound: No local PlayerShooter (IsMine) was found in the scene.");
+        }
+    }
 
     // Coroutine locale gérant l'attente et l'effet de soin par tics physiologiques
     private IEnumerator RegenerationRoutine()

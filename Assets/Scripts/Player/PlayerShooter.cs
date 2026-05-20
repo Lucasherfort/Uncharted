@@ -8,7 +8,7 @@ public class PlayerShooter : MonoBehaviourPun
 {
     [Header("References")]
     public Camera fpsCamera;
-    public AudioSource audioSource;
+public AudioSource weaponAudioSource;
 
     [Header("Shooting")]
     public float range = 100f;
@@ -43,6 +43,9 @@ public class PlayerShooter : MonoBehaviourPun
 
     [Header("Kill")]
     public AudioClip killSound;
+
+    [Header("UI Audio")]
+public AudioSource uiAudioSource;
 
     void Awake()
     {
@@ -174,15 +177,15 @@ public class PlayerShooter : MonoBehaviourPun
         }
     }
 
-    [PunRPC] void RPC_ShootSound() => Play(shootSound);
-    [PunRPC] void RPC_HitSound() => Play(hitSound);
-    [PunRPC] void RPC_Empty() => Play(emptySound);
+    [PunRPC] void RPC_ShootSound() => PlayWeapon(shootSound);
+    [PunRPC] void RPC_HitSound() => PlayKillSound();
+    [PunRPC] void RPC_Empty() => PlayWeapon(emptySound);
 
-    void Play(AudioClip clip)
-    {
-        if (clip && audioSource)
-            audioSource.PlayOneShot(clip);
-    }
+void PlayWeapon(AudioClip clip)
+{
+    if (clip && weaponAudioSource)
+        weaponAudioSource.PlayOneShot(clip);
+}
 
     void UpdateAmmoUI()
     {
@@ -190,8 +193,13 @@ public class PlayerShooter : MonoBehaviourPun
             ammoTxt.text = infiniteAmmo ? "∞ / ∞" : currentAmmo + " / " + totalAmmo;
     }
 
-    public void PlayKillSound()
+public void PlayKillSound()
+{
+    Debug.Log("Tentative de jouer le son de kill...");
+    if (killSound && uiAudioSource)
     {
-        Play(killSound);
+        Debug.Log("Son de kill joué !");
+        uiAudioSource.PlayOneShot(killSound);
     }
+}
 }
