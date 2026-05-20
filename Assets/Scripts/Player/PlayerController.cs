@@ -72,6 +72,12 @@ public class PlayerController : MonoBehaviour
             Canvas localCanvas = GetComponentInChildren<Canvas>();
             if (localCanvas != null) localCanvas.enabled = false;
         }
+        else
+    {
+        // Cache et verrouille le curseur
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
     }
 
     void Update()

@@ -36,103 +36,136 @@ public class PlayerHealth : MonoBehaviourPun
         UpdateUI();
     }
 
-    public void ApplyDamageLocal(float amount, int attackerActorNumber)
-    {
-        if (!photonView.IsMine) return;
-        if (isDead) return;
+public void ApplyDamageLocal(float amount, int attackerActorNumber)
+{
+    // Seule la victime locale gère sa vie
+    if (!photonView.IsMine)
+        return;
 
-        photonView.RPC(nameof(RPC_TakeDamage), RpcTarget.All, amount, attackerActorNumber);
+    if (isDead)
+        return;
+
+    // =========================
+    // ANTI SELF DAMAGE
+    // =========================
+    if (photonView.Owner.ActorNumber == attackerActorNumber)
+        return;
+
+    // IMPORTANT :
+    // On appelle directement la fonction
+    // PAS de RPC ici
+    RPC_TakeDamage(amount, attackerActorNumber);
+}
+[PunRPC]
+void RPC_TakeDamage(float amount, int attackerActorNumber)
+{
+    // Sécurité
+    if (isDead)
+        return;
+
+    // Application des dégâts
+    currentHealth -= amount;
+    currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
+
+    // Effet de dégâts local
+    damageEffect?.OnDamage();
+
+    // Stop regen
+    if (regenCoroutine != null)
+    {
+        StopCoroutine(regenCoroutine);
     }
 
-    [PunRPC]
-    void RPC_TakeDamage(float amount, int attackerActorNumber)
+    // Restart regen si vivant
+    if (currentHealth > 0)
     {
-        currentHealth -= amount;
-        currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
+        regenCoroutine = StartCoroutine(RegenerationRoutine());
+    }
 
-        if (photonView.IsMine)
+    UpdateUI();
+
+    // =========================
+    // MORT
+    // =========================
+    if (currentHealth <= 0)
+    {
+        isDead = true;
+
+        // Stop regen définitif
+        if (regenCoroutine != null)
         {
-            damageEffect?.OnDamage();
-
-            // --- LOGIQUE RÉALISTE DE RÉGÉNÉRATION ---
-            // Si on subit des dégâts, on stoppe immédiatement la régénération en cours
-            if (regenCoroutine != null)
-            {
-                StopCoroutine(regenCoroutine);
-            }
-
-            // Si le joueur est toujours en vie, on relance le processus (attente du choc + soin)
-            if (currentHealth > 0 && !isDead)
-            {
-                regenCoroutine = StartCoroutine(RegenerationRoutine());
-            }
+            StopCoroutine(regenCoroutine);
         }
 
-        UpdateUI();
+        // Récupération attaquant
+        Player attacker = PhotonNetwork.CurrentRoom.GetPlayer(attackerActorNumber);
 
-        // Détection de la mort
-        if (currentHealth <= 0 && !isDead)
+        string attackerName =
+            attacker != null
+            ? attacker.NickName
+            : "Environnement";
+
+        string killedName = photonView.Owner.NickName;
+
+        // =========================
+        // KILLFEED
+        // =========================
+        DeathmatchManager.Instance.photonView.RPC(
+            nameof(DeathmatchManager.RPC_AddKillFeed),
+            RpcTarget.All,
+            attackerName,
+            killedName
+        );
+
+        // =========================
+        // SCORE
+        // =========================
+        if (PhotonNetwork.IsMasterClient &&
+            attacker != null &&
+            attacker != photonView.Owner)
         {
-            isDead = true;
+            int currentKills = 0;
 
-            // On stoppe définitivement la régénération si on meurt
-            if (photonView.IsMine && regenCoroutine != null)
+            if (attacker.CustomProperties.TryGetValue("Kills", out object killsObj))
             {
-                StopCoroutine(regenCoroutine);
+                currentKills = (int)killsObj;
             }
 
-            // On récupère le profil de l'attaquant via son ID Photon
-            Player attacker = PhotonNetwork.CurrentRoom.GetPlayer(attackerActorNumber);
-            string attackerName = attacker != null ? attacker.NickName : "Environnement";
+            ExitGames.Client.Photon.Hashtable props =
+                new ExitGames.Client.Photon.Hashtable();
 
-            // Envoi au Killfeed
-            if (photonView.IsMine)
-            {
-                DeathmatchManager.Instance.photonView.RPC(
-                    nameof(DeathmatchManager.RPC_AddKillFeed), 
-                    RpcTarget.All, 
-                    attackerName, 
-                    photonView.Owner.NickName
-                );
-            }
+            props["Kills"] = currentKills + 1;
 
-            // --- GESTION DU SCORE (CUSTOM PROPERTIES) ---
-            if (PhotonNetwork.IsMasterClient && attacker != null && attacker != photonView.Owner)
+            attacker.SetCustomProperties(props);
+        }
+
+        // =========================
+        // KILL SOUND
+        // =========================
+        if (PhotonNetwork.LocalPlayer.ActorNumber == attackerActorNumber)
+        {
+            PlayerShooter[] shooters = FindObjectsOfType<PlayerShooter>();
+
+            foreach (var shooter in shooters)
             {
-                int currentKills = 0;
-                
-                if (attacker.CustomProperties.TryGetValue("Kills", out object killsObj))
+                PhotonView pv = shooter.GetComponent<PhotonView>();
+
+                if (pv != null &&
+                    pv.Owner.ActorNumber == attackerActorNumber &&
+                    pv.IsMine)
                 {
-                    currentKills = (int)killsObj;
+                    shooter.PlayKillSound();
+                    break;
                 }
-
-                ExitGames.Client.Photon.Hashtable props = new ExitGames.Client.Photon.Hashtable();
-                props["Kills"] = currentKills + 1;
-                attacker.SetCustomProperties(props);
-            }
-
-            // Le joueur local est-il celui qui a fait le kill ?
-if (PhotonNetwork.LocalPlayer.ActorNumber == attackerActorNumber)
-{
-    PlayerShooter[] shooters = FindObjectsOfType<PlayerShooter>();
-
-    foreach (var shooter in shooters)
-    {
-        PhotonView pv = shooter.GetComponent<PhotonView>();
-
-        if (pv != null && pv.Owner.ActorNumber == attackerActorNumber)
-        {
-            if (pv.IsMine)
-            {
-                shooter.PlayKillSound();
             }
         }
+
+        // =========================
+        // MORT VISUELLE
+        // =========================
+        photonView.RPC(nameof(RPC_Die), RpcTarget.All);
     }
 }
-
-            photonView.RPC(nameof(RPC_Die), RpcTarget.All);
-        }
-    }
 
     // Coroutine locale gérant l'attente et l'effet de soin par tics physiologiques
     private IEnumerator RegenerationRoutine()
@@ -186,7 +219,6 @@ if (PhotonNetwork.LocalPlayer.ActorNumber == attackerActorNumber)
 
     System.Collections.IEnumerator RespawnRoutine()
     {
-        Debug.Log($"<color=cyan>[RESPAWN DEBUT]</color> Début du calcul de spawn pour {photonView.Owner.NickName}");
         yield return new WaitForSeconds(respawnDelay);
 
         Vector3 bestSpawnPos = Vector3.zero;
@@ -194,11 +226,8 @@ if (PhotonNetwork.LocalPlayer.ActorNumber == attackerActorNumber)
 
         if (DeathmatchManager.Instance != null && DeathmatchManager.Instance.spawnPoints.Length > 0)
         {
-            Transform[] spawns = DeathmatchManager.Instance.spawnPoints;
-            Debug.Log($"[RESPAWN LOGIQUE] Nombre de points de spawn trouvés dans DeathmatchManager : {spawns.Length}");
-            
+            Transform[] spawns = DeathmatchManager.Instance.spawnPoints;            
             PlayerHealth[] allPlayers = FindObjectsOfType<PlayerHealth>();
-            Debug.Log($"[RESPAWN LOGIQUE] Nombre total de joueurs détectés sur la map : {allPlayers.Length}");
 
             float maxScorePosition = -1f;
             Transform chosenSpawn = spawns[0]; 
@@ -220,8 +249,6 @@ if (PhotonNetwork.LocalPlayer.ActorNumber == attackerActorNumber)
                         minDistanceForThisSpawn = distance;
                     }
                 }
-
-                Debug.Log($"[RESPAWN ANALYSE] Point {i} ({spawn.name}) -> Distance du joueur le plus proche : {minDistanceForThisSpawn}m");
 
                 if (minDistanceForThisSpawn > maxScorePosition)
                 {
