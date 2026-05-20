@@ -61,6 +61,7 @@ MonoBehaviour:
   - RPC_RequestSpawnIndex
   - RPC_RegisterKill
   - RPC_SendKillNotification
+  - RPC_TriggerEndGame
   DisableAutoOpenWizard: 1
   ShowSettings: 1
   DevRegionSetOnce: 1
