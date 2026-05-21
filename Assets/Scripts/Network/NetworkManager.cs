@@ -143,7 +143,7 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         }
         else if (gm == 1)
         {
-            PhotonNetwork.LoadLevel("Deathmatch");
+            PhotonNetwork.LoadLevel("Deathmatch2");
         }
     }
 
