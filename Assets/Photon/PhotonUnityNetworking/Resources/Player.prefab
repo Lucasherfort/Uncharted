@@ -278,7 +278,7 @@ MonoBehaviour:
   weaponAudioSource: {fileID: 6735744806441874236}
   range: 100
   damage: 10
-  fireRate: 10
+  fireRate: 8
   infiniteAmmo: 1
   maxAmmo: 30
   currentAmmo: 0
