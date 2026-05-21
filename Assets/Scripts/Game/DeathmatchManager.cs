@@ -2,7 +2,7 @@ using Photon.Pun;
 using Photon.Realtime;
 using UnityEngine;
 using System.Collections.Generic;
-using TMPro; // Requis si ton texte de fin utilise TextMeshPro. Sinon, utilise UnityEngine.UI;
+using TMPro;
 
 public class DeathmatchManager : MonoBehaviourPunCallbacks
 {
@@ -11,19 +11,19 @@ public class DeathmatchManager : MonoBehaviourPunCallbacks
     [Header("Settings")]
     public GameObject playerPrefab;
     public Transform[] spawnPoints;
-    [SerializeField] private int goal = 10; // 20 kills pour gagner
+    [SerializeField] private int goal = 10; // 10 kills pour gagner
 
-    [Header("End Game UI UI")]
+    [Header("End Game UI")]
     [Tooltip("L'objet Panel/Pop-up de fin dans ton Canvas GameUI")]
     public GameObject endGamePanel; 
     [Tooltip("Le composant texte à l'intérieur du panel de fin")]
-    public TMP_Text victoryText; // Remplace par 'public Text victoryText;' si UI classique
+    public TMP_Text victoryText;
 
     private int playersReady = 0;
-    private bool isMatchOver = false; // Sécurité pour éviter de déclencher la fin plusieurs fois
+    private bool isMatchOver = false; 
     
-    // Liste pour suivre quels index de spawn ont déjà été attribués (Master Client uniquement)
-    private List<int> usedSpawnIndexes = new List<int>();
+    // 🔥 Liste des index de spawn encore disponibles (mélangée dynamiquement)
+    private List<int> availableSpawnIndexes = new List<int>();
 
     void Awake()
     {
@@ -32,8 +32,13 @@ public class DeathmatchManager : MonoBehaviourPunCallbacks
 
     void Start()
     {
-        // On s'assure que l'UI de fin est bien cachée au lancement
         if (endGamePanel != null) endGamePanel.SetActive(false);
+
+        // 🔥 Seul le Master Client initialise et mélange les spawns au démarrage de la scène
+        if (PhotonNetwork.IsConnected && PhotonNetwork.IsMasterClient)
+        {
+            GenerateRandomizedSpawnList();
+        }
 
         if (PhotonNetwork.IsConnected)
         {
@@ -42,8 +47,30 @@ public class DeathmatchManager : MonoBehaviourPunCallbacks
     }
 
     // =========================================================================
-    // 👤 SYSTEME DE DISPATCH DES SPAWNS (ANTI-DOUBLONS)
+    // 🎲 GENERATEUR DE SPAWNS ALEATOIRES (ANTI-DOUBLONS & SHUFFLE)
     // =========================================================================
+
+    private void GenerateRandomizedSpawnList()
+    {
+        availableSpawnIndexes.Clear();
+        
+        // 1. On remplit la liste avec tous les index existants
+        for (int i = 0; i < spawnPoints.Length; i++)
+        {
+            availableSpawnIndexes.Add(i);
+        }
+
+        // 2. Algorithme de Fisher-Yates pour mélanger aléatoirement la liste
+        for (int i = availableSpawnIndexes.Count - 1; i > 0; i--)
+        {
+            int randomIndex = Random.Range(0, i + 1);
+            int temp = availableSpawnIndexes[i];
+            availableSpawnIndexes[i] = availableSpawnIndexes[randomIndex];
+            availableSpawnIndexes[randomIndex] = temp;
+        }
+        
+        Debug.Log("<color=cyan>[DeathmatchManager]</color> Liste des points de spawn mélangée avec succès !");
+    }
 
     [PunRPC]
     void RPC_RequestSpawnIndex(Player requestingPlayer)
@@ -51,23 +78,20 @@ public class DeathmatchManager : MonoBehaviourPunCallbacks
         if (!PhotonNetwork.IsMasterClient) return;
 
         int chosenIndex = 0;
-        bool foundUniqueSpawn = false;
 
-        for (int i = 0; i < spawnPoints.Length; i++)
+        // Si on a encore des spawns uniques mélangés dans notre liste
+        if (availableSpawnIndexes.Count > 0)
         {
-            if (!usedSpawnIndexes.Contains(i))
-            {
-                chosenIndex = i;
-                usedSpawnIndexes.Add(i);
-                foundUniqueSpawn = true;
-                break;
-            }
+            // On pioche le premier index de la liste mélangée
+            chosenIndex = availableSpawnIndexes[0];
+            // On le retire pour qu'aucun autre joueur ne puisse le piocher
+            availableSpawnIndexes.RemoveAt(0);
         }
-
-        if (!foundUniqueSpawn)
+        else
         {
+            // Sécurité : Si plus de spawns que de places, on prend de l'aléatoire pur
             chosenIndex = Random.Range(0, spawnPoints.Length);
-            Debug.LogWarning("[DeathmatchManager] Plus de points de spawn uniques disponibles ! Attribution aléatoire par défaut.");
+            Debug.LogWarning("[DeathmatchManager] Plus de points de spawn uniques ! Attribution aléatoire brute.");
         }
 
         photonView.RPC(nameof(RPC_ReceiveSpawnIndex), requestingPlayer, chosenIndex);
@@ -102,7 +126,7 @@ public class DeathmatchManager : MonoBehaviourPunCallbacks
 
         if (playersReady >= PhotonNetwork.CurrentRoom.PlayerCount)
         {
-            Debug.Log("<color=green>[DeathmatchManager]</color> Tous les joueurs ont spawn sur des points uniques et sont prêts !");
+            Debug.Log("<color=green>[DeathmatchManager]</color> Tous les joueurs ont spawn de manière aléatoire et unique !");
         }
     }
 
@@ -110,15 +134,19 @@ public class DeathmatchManager : MonoBehaviourPunCallbacks
     // 🚪 PLAYER LEFT
     // =========================================================================
 
-    public void OnPlayerLeftGame(Player player)
+    // Correction de la callback Photon pour correspondre à MonoBehaviourPunCallbacks
+    public override void OnPlayerLeftRoom(Player otherPlayer)
     {
-        Debug.Log($"[Survival] {player.NickName} a quitté");
+        Debug.Log($"[Deathmatch] {otherPlayer.NickName} a quitté la partie.");
     }
 
     [PunRPC]
     public void RPC_AddKillFeed(string killer, string killed)
     {
-        KillFeedUI.Instance.AddKill(killer, killed);
+        if (KillFeedUI.Instance != null)
+        {
+            KillFeedUI.Instance.AddKill(killer, killed);
+        }
         Debug.Log($"{killer} a tué {killed}");
     }
 
@@ -154,55 +182,48 @@ public class DeathmatchManager : MonoBehaviourPunCallbacks
         props["Kills"] = newKillsValue;
         killer.SetCustomProperties(props);
 
-        Debug.Log($"[MASTER] Kill updated for {killer.NickName} = {newKillsValue}");
+        Debug.Log($"[MASTER] Kill mis à jour pour {killer.NickName} = {newKillsValue}");
 
-        // 🔥 CHECK DE VICTOIRE : Est-ce que le tueur vient d'atteindre le Goal ?
         if (newKillsValue >= goal)
         {
             isMatchOver = true;
-            Debug.Log($"[MASTER] {killer.NickName} a atteint le score limite ! Fin du match.");
-            
-            // On ordonne à TOUT LE MONDE d'arrêter la partie et d'afficher le gagnant
             photonView.RPC(nameof(RPC_TriggerEndGame), RpcTarget.All, killer.NickName);
         }
     }
 
     // =========================================================================
-    // 🏆 ARRET ET RECEPTION DU GAGNANT (SUR TOUS LES PC)
+    // 🏆 ARRET ET RECEPTION DU GAGNANT
     // =========================================================================
 
     [PunRPC]
     void RPC_TriggerEndGame(string winnerName)
     {
-        isMatchOver = true; // Bloque aussi l'état en local
+        isMatchOver = true; 
 
         Debug.Log($"[END GAME] Le joueur {winnerName} a gagné la partie !");
 
-        // 1. Désactivation des contrôles de TOUS les joueurs présents dans la scène
-        // (On cherche les scripts de mouvement/tir pour couper les actions)
+        // Désactivation des tirs
         PlayerShooter[] allShooters = FindObjectsOfType<PlayerShooter>();
         foreach (PlayerShooter shooter in allShooters)
         {
-            shooter.enabled = false; // Empêche de tirer
+            shooter.enabled = false;
         }
 
-        // 💡 Astuce : Si tu as un script "PlayerMovement", désactive-le ici de la même manière :
-
+        // Désactivation des mouvements
         PlayerController[] allMovements = FindObjectsOfType<PlayerController>();
-        foreach (PlayerController move in allMovements) { move.enabled = false; }
-
-        // 2. Affichage et mise à jour de l'UI de fin de partie
-        if (endGamePanel != null)
-        {
-            endGamePanel.SetActive(true);
+        foreach (PlayerController move in allMovements) 
+        { 
+            move.enabled = false; 
         }
+
+        // Affichage UI
+        if (endGamePanel != null) endGamePanel.SetActive(true);
 
         if (victoryText != null)
         {
             victoryText.text = $"Le joueur {winnerName} a gagné la partie !";
         }
         
-        // 3. Optionnel : Libérer le curseur de la souris pour pouvoir cliquer sur un bouton "Quitter"
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
     }
