@@ -76,8 +76,8 @@ public class PlayerController : MonoBehaviour
         else
     {
         // Cache et verrouille le curseur
-        //Cursor.lockState = CursorLockMode.Locked;
-        //Cursor.visible = false;
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
     }
 
