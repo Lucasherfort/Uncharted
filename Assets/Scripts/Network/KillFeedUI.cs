@@ -7,18 +7,14 @@ public class KillFeedUI : MonoBehaviour
     public static KillFeedUI Instance;
 
     [Header("References")]
-    [Tooltip("Le préfabriqué de ton KillItemUI (à créer depuis ta hiérarchie)")]
     public GameObject killItemPrefab;
-    [Tooltip("Le panel parent qui possède le Vertical Layout Group")]
     public Transform container;
 
     [Header("Settings")]
     public float visibleTime = 5f;
-    public int maxVisibleItems = 5; // Nombre max de kills affichés en même temps
+    public int maxVisibleItems = 5;
 
-    // Notre pool d'objets désactivés prêts à être réutilisés
     private Queue<KillItemUI> pool = new Queue<KillItemUI>();
-    // La liste des kills actuellement visibles à l'écran
     private List<KillItemUI> activeItems = new List<KillItemUI>();
 
     void Awake()
@@ -28,42 +24,36 @@ public class KillFeedUI : MonoBehaviour
 
     public void AddKill(string killer, string killed)
     {
-        // 1. Sécurité : Si l'écran est saturé, on force le plus ancien à s'en aller immédiatement
+        // 1. Si trop de kills, on dégage le plus ancien (qui est maintenant en bas de la liste active)
         if (activeItems.Count >= maxVisibleItems)
         {
             KillItemUI oldest = activeItems[0];
-            oldest.ForceRelease(); // Coupe son animation et le remet dans le pool
+            oldest.ForceRelease();
         }
 
-        // 2. Récupération ou création d'un item
+        // 2. Récupération depuis le Pool
         KillItemUI item = GetItemFromPool();
         
-        // 3. Configuration et positionnement
+        // 3. Activation et placement
         item.transform.SetParent(container, false);
         item.gameObject.SetActive(true);
         item.Setup(killer, killed);
         
-        // On le force à se mettre tout en bas du Vertical Layout Group
-        item.transform.SetAsFirstSibling(); // Envoie tout en haut
+        // 🔥 L'ASTUCE ICI : On le force à être le PREMIER enfant. 
+        // Le Vertical Layout Group le placera donc automatiquement tout en haut.
+        item.transform.SetAsFirstSibling(); 
 
         activeItems.Add(item);
 
-        // 4. Lancement du décompte avant disparition
         StartCoroutine(AutoHide(item));
     }
 
     private KillItemUI GetItemFromPool()
     {
-        if (pool.Count > 0)
-        {
-            return pool.Dequeue();
-        }
-        else
-        {
-            // Si le pool est vide, on instancie un nouveau préfabriqué en local (PAS de PhotonNetwork)
-            GameObject newObj = Instantiate(killItemPrefab, container);
-            return newObj.GetComponent<KillItemUI>();
-        }
+        if (pool.Count > 0) return pool.Dequeue();
+        
+        GameObject newObj = Instantiate(killItemPrefab, container);
+        return newObj.GetComponent<KillItemUI>();
     }
 
     public void ReturnToPool(KillItemUI item)
@@ -80,11 +70,9 @@ public class KillFeedUI : MonoBehaviour
     IEnumerator AutoHide(KillItemUI item)
     {
         yield return new WaitForSeconds(visibleTime);
-
-        // On vérifie que l'item n'a pas déjà été recyclé de force entre temps
         if (activeItems.Contains(item))
         {
-            item.Release(); // Lance l'animation de sortie
+            item.Release();
         }
     }
 }

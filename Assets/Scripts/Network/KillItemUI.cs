@@ -8,23 +8,13 @@ public class KillItemUI : MonoBehaviour
     [Header("Components")]
     public TMP_Text killerText;
     public TMP_Text killedText;
+    
     private CanvasGroup canvasGroup;
-    private RectTransform rectTransform;
-
-    [Header("Animation Settings")]
-    public float animationDuration = 0.25f;
-    public float startXOffset = -150f;
-
-    private Vector2 targetAnchoredPosition;
-    private Coroutine currentAnimCoroutine;
 
     void Awake()
     {
-        rectTransform = GetComponent<RectTransform>();
         canvasGroup = GetComponent<CanvasGroup>();
         if (canvasGroup == null) canvasGroup = gameObject.AddComponent<CanvasGroup>();
-        
-        targetAnchoredPosition = rectTransform.anchoredPosition;
     }
 
     public void Setup(string killer, string killed)
@@ -33,50 +23,39 @@ public class KillItemUI : MonoBehaviour
         killerText.text = killer;
         killedText.text = killed;
 
-        // Couleurs Vert/Rouge selon ta logique stricte
+        // Vos couleurs strictes
         killerText.color = (killer == myName) ? Color.green : Color.red;
         killedText.color = (killed == myName) ? Color.green : Color.red;
 
-        if (currentAnimCoroutine != null) StopCoroutine(currentAnimCoroutine);
-        currentAnimCoroutine = StartCoroutine(AnimateIn());
+        // Lance le fondu d'apparition
+        StartCoroutine(FadeIn());
     }
 
-    private IEnumerator AnimateIn()
+    private IEnumerator FadeIn()
     {
         float elapsedTime = 0f;
-        Vector2 startPosition = new Vector2(targetAnchoredPosition.x + startXOffset, targetAnchoredPosition.y);
-        rectTransform.anchoredPosition = startPosition;
         canvasGroup.alpha = 0f;
 
-        while (elapsedTime < animationDuration)
+        while (elapsedTime < 0.2f)
         {
             elapsedTime += Time.deltaTime;
-            float t = elapsedTime / animationDuration;
-            t = t * t * (3f - 2f * t); // SmoothStep
-
-            rectTransform.anchoredPosition = Vector2.Lerp(startPosition, targetAnchoredPosition, t);
-            canvasGroup.alpha = Mathf.Lerp(0f, 1f, t);
+            canvasGroup.alpha = Mathf.Lerp(0f, 1f, elapsedTime / 0.2f);
             yield return null;
         }
-
-        rectTransform.anchoredPosition = targetAnchoredPosition;
         canvasGroup.alpha = 1f;
     }
 
     public void Release()
     {
-        if (currentAnimCoroutine != null) StopCoroutine(currentAnimCoroutine);
-        currentAnimCoroutine = StartCoroutine(AnimateOut());
+        StartCoroutine(FadeOut());
     }
 
-    // Utilisé pour recycler instantanément sans attendre le fondu si l'écran est inondé
     public void ForceRelease()
     {
-        if (currentAnimCoroutine != null) StopCoroutine(currentAnimCoroutine);
         KillFeedUI.Instance.ReturnToPool(this);
     }
 
-    private IEnumerator AnimateOut()
+    private IEnumerator FadeOut()
     {
         float elapsedTime = 0f;
         float startAlpha = canvasGroup.alpha;
@@ -88,7 +67,6 @@ public class KillItemUI : MonoBehaviour
             yield return null;
         }
 
-        // Au lieu de juste faire un SetActive(false), on se renvoie dans le pool général
         KillFeedUI.Instance.ReturnToPool(this);
     }
 }
