@@ -22,31 +22,34 @@ public class KillFeedUI : MonoBehaviour
         Instance = this;
     }
 
-    public void AddKill(string killer, string killed)
+public void AddKill(string killer, string killed)
+{
+    // 1. Sécurité : Si trop de kills, on recycle immédiatement le plus ancien
+    if (activeItems.Count >= maxVisibleItems)
     {
-        // 1. Si trop de kills, on dégage le plus ancien (qui est maintenant en bas de la liste active)
-        if (activeItems.Count >= maxVisibleItems)
-        {
-            KillItemUI oldest = activeItems[0];
-            oldest.ForceRelease();
-        }
-
-        // 2. Récupération depuis le Pool
-        KillItemUI item = GetItemFromPool();
-        
-        // 3. Activation et placement
-        item.transform.SetParent(container, false);
-        item.gameObject.SetActive(true);
-        item.Setup(killer, killed);
-        
-        // 🔥 L'ASTUCE ICI : On le force à être le PREMIER enfant. 
-        // Le Vertical Layout Group le placera donc automatiquement tout en haut.
-        item.transform.SetAsFirstSibling(); 
-
-        activeItems.Add(item);
-
-        StartCoroutine(AutoHide(item));
+        KillItemUI oldest = activeItems[0];
+        oldest.ForceRelease();
     }
+
+    // 2. Récupération de l'item depuis le Pool
+    KillItemUI item = GetItemFromPool();
+    
+    // 3. PLACEMENT : On l'ajoute au container AVANT toute chose pour que le Layout s'initialise
+    item.transform.SetParent(container, false);
+    item.gameObject.SetActive(true);
+    
+    // 4. HIÉRARCHIE : On le force à se mettre tout en haut dans le Vertical Layout Group
+    item.transform.SetAsFirstSibling(); 
+
+    // 5. ENREGISTREMENT : On l'ajoute à notre liste de suivi des kills actifs
+    activeItems.Add(item);
+
+    // 6. ANIMATION : Maintenant que sa place est sécurisée par Unity, on lance les textes et la glissade
+    item.Setup(killer, killed);
+
+    // 7. CHRONO : Lancement du compte à rebours avant la disparition automatique
+    StartCoroutine(AutoHide(item));
+}
 
     private KillItemUI GetItemFromPool()
     {
