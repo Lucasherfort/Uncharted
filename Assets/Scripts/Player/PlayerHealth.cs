@@ -19,7 +19,7 @@ public class PlayerHealth : MonoBehaviourPun
     public float regenInterval = 1f;
 
     [Header("Respawn")]
-    public float respawnDelay = 3f;
+    private float respawnDelay = 6f;
 
     [Header("Effects")]
     public DamageEffect damageEffect;
@@ -225,60 +225,87 @@ public void ApplyDamageLocal(float amount, int attackerActorNumber)
         }
     }
 
+    /// Coroutine gérant le respawn du joueur après sa mort
     System.Collections.IEnumerator RespawnRoutine()
     {
-        yield return new WaitForSeconds(respawnDelay);
+        float timeLeft = respawnDelay;
 
-        Vector3 bestSpawnPos = Vector3.zero;
-        Quaternion bestSpawnRot = Quaternion.identity;
-
-        if (GameLauncher.Instance != null && GameLauncher.Instance.spawnPoints.Length > 0)
+        // 1. Afficher l'écran de respawn et lancer le décompte visuel
+        if (photonView.IsMine && MatchHUDManager.Instance != null && MatchHUDManager.Instance.LocalPlayerHUD != null)
         {
-            Transform[] spawns = GameLauncher.Instance.spawnPoints;            
-            PlayerHealth[] allPlayers = FindObjectsOfType<PlayerHealth>();
+            MatchHUDManager.Instance.LocalPlayerHUD.ToggleRespawnScreen(true);
+        }
 
-            float maxScorePosition = -1f;
-            Transform chosenSpawn = spawns[0]; 
-
-            for (int i = 0; i < spawns.Length; i++)
+        // 2. Boucle du compte à rebours seconde par seconde
+        while (timeLeft > 0f)
+        {
+            if (photonView.IsMine && MatchHUDManager.Instance != null && MatchHUDManager.Instance.LocalPlayerHUD != null)
             {
-                Transform spawn = spawns[i];
-                float minDistanceForThisSpawn = float.MaxValue;
+                MatchHUDManager.Instance.LocalPlayerHUD.UpdateRespawnTimer(Mathf.CeilToInt(timeLeft));
+            }
 
-                foreach (PlayerHealth p in allPlayers)
+            yield return new WaitForSeconds(1f);
+            timeLeft -= 1f;
+        }
+
+        // 3. Masquer l'écran de respawn juste avant de réapparaître
+        if (photonView.IsMine && MatchHUDManager.Instance != null && MatchHUDManager.Instance.LocalPlayerHUD != null)
+        {
+        MatchHUDManager.Instance.LocalPlayerHUD.ToggleRespawnScreen(false);
+    }
+
+    Vector3 bestSpawnPos = Vector3.zero;
+    Quaternion bestSpawnRot = Quaternion.identity;
+
+    // 4. Utilisation de GameManager au lieu de GameLauncher
+    if (GameLauncher.Instance != null && GameLauncher.Instance.spawnPoints.Length > 0)
+    {
+        Transform[] spawns = GameLauncher.Instance.spawnPoints;            
+        PlayerHealth[] allPlayers = FindObjectsOfType<PlayerHealth>();
+
+        float maxScorePosition = -1f;
+        Transform chosenSpawn = spawns[0]; 
+
+        for (int i = 0; i < spawns.Length; i++)
+        {
+            Transform spawn = spawns[i];
+            float minDistanceForThisSpawn = float.MaxValue;
+
+            foreach (PlayerHealth p in allPlayers)
+            {
+                if (p == this) continue; 
+                if (p.isDead) continue; 
+
+                float distance = Vector3.Distance(spawn.position, p.transform.position);
+                
+                if (distance < minDistanceForThisSpawn)
                 {
-                    if (p == this) continue; 
-                    if (p.isDead) continue; 
-
-                    float distance = Vector3.Distance(spawn.position, p.transform.position);
-                    
-                    if (distance < minDistanceForThisSpawn)
-                    {
-                        minDistanceForThisSpawn = distance;
-                    }
-                }
-
-                if (minDistanceForThisSpawn > maxScorePosition)
-                {
-                    maxScorePosition = minDistanceForThisSpawn;
-                    chosenSpawn = spawn;
+                    minDistanceForThisSpawn = distance;
                 }
             }
 
-            bestSpawnPos = chosenSpawn.position;
-            bestSpawnRot = chosenSpawn.rotation;
-            
-            // Sécurité anti-collision sol : on surélève légèrement le point choisi
-            bestSpawnPos += new Vector3(0, 0.5f, 0);
-        }
-        else
-        {
-            bestSpawnPos = transform.position;
-            bestSpawnRot = transform.rotation;
+            if (minDistanceForThisSpawn > maxScorePosition)
+            {
+                maxScorePosition = minDistanceForThisSpawn;
+                chosenSpawn = spawn;
+            }
         }
 
-        photonView.RPC(nameof(RPC_Respawn), RpcTarget.All, bestSpawnPos, bestSpawnRot);
+        bestSpawnPos = chosenSpawn.position;
+        bestSpawnRot = chosenSpawn.rotation;
+        
+        // Sécurité anti-collision sol : on surélève légèrement le point choisi
+        bestSpawnPos += new Vector3(0, 0.5f, 0);
     }
+    else
+    {
+        bestSpawnPos = transform.position;
+        bestSpawnRot = transform.rotation;
+    }
+
+    // 5. Envoi du RPC de respawn à tout le monde
+    photonView.RPC(nameof(RPC_Respawn), RpcTarget.All, bestSpawnPos, bestSpawnRot);
+}
 
     [PunRPC]
     void RPC_Respawn(Vector3 targetPosition, Quaternion targetRotation)

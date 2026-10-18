@@ -13,6 +13,10 @@ public class LocalPlayerHUD : MonoBehaviour
     [SerializeField] private TMP_Text ammoText;
     [SerializeField] private Image hitmarkerImage;
 
+    [Header("Respawn Screen")]
+    [SerializeField] private GameObject respawnPanel;      // Le panneau global de respawn
+    [SerializeField] private TMP_Text respawnTimerText;    // Le texte "Respawn dans X sec"
+
     private Coroutine hitmarkerCoroutine;
 
     private void Awake()
@@ -29,6 +33,35 @@ public class LocalPlayerHUD : MonoBehaviour
 
         if (healthBar != null)
             healthBar.fillAmount = currentHealth / maxHealth;
+    }
+
+    /// <summary>
+    /// Affiche ou masque l'écran de respawn
+    /// </summary>
+    public void ToggleRespawnScreen(bool isOpen)
+    {
+        if (respawnPanel != null)
+        {
+            respawnPanel.SetActive(isOpen);
+        }
+    }
+
+    /// <summary>
+    /// Met à jour le texte du compte à rebours
+    /// </summary>
+    public void UpdateRespawnTimer(int secondsLeft)
+    {
+        if (respawnTimerText != null)
+        {
+            if (secondsLeft > 0)
+            {
+                respawnTimerText.text = $"Respawn dans {secondsLeft} seconde{(secondsLeft > 1 ? "s" : "")}...";
+            }
+            else
+            {
+                respawnTimerText.text = "Respawn en cours...";
+            }
+        }
     }
 
     // --- MUNITIONS ---
