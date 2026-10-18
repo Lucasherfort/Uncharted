@@ -307,7 +307,6 @@ MonoBehaviour:
   regenDelay: 5
   regenAmount: 2
   regenInterval: 1
-  respawnDelay: 3
   damageEffect: {fileID: 3325176134186260608}
 --- !u!114 &3325176134186260608
 MonoBehaviour:

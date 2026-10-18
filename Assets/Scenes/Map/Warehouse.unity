@@ -30093,7 +30093,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cf4bc0d6a4f27bc4cad684a2166f1494, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  playerPrefab: {fileID: 4758430773197775429, guid: 943b5e1efe62a5443a2442f2ec2c3a45, type: 3}
+  playerPrefab: {fileID: 4758430773197775429, guid: b3d3112e5d9a3324db5e0ef0b5a5c2b3, type: 3}
   spawnPoints:
   - {fileID: 1650249237}
   - {fileID: 954002057}
@@ -51744,7 +51744,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1770067700455130653
 RectTransform:
   m_ObjectHideFlags: 0
