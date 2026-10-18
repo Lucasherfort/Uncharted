@@ -18,9 +18,6 @@ public class PlayerHealth : MonoBehaviourPun
     [Tooltip("Intervalle de temps (en secondes) entre chaque cycle de soin.")]
     public float regenInterval = 1f;
 
-    [Header("UI")]
-    public TMP_Text healthText;
-
     [Header("Respawn")]
     public float respawnDelay = 3f;
 
@@ -121,8 +118,8 @@ public void ApplyDamageLocal(float amount, int attackerActorNumber)
         // =========================
         Debug.Log("[KILLFEED] Sending RPC_AddKillFeed");
 
-        DeathmatchManager.Instance.photonView.RPC(
-            nameof(DeathmatchManager.RPC_AddKillFeed),
+        GameLauncher.Instance.photonView.RPC(
+            nameof(GameLauncher.RPC_AddKillFeed),
             RpcTarget.All,
             attackerName,
             killedName
@@ -135,8 +132,8 @@ public void ApplyDamageLocal(float amount, int attackerActorNumber)
         {
             // 1. On envoie le score au Master Client
             Debug.Log("[KILL] Sending kill to Master");
-            DeathmatchManager.Instance.photonView.RPC(
-                nameof(DeathmatchManager.RPC_RegisterKill),
+            GameLauncher.Instance.photonView.RPC(
+                nameof(GameLauncher.RPC_RegisterKill),
                 RpcTarget.MasterClient,
                 attackerActorNumber
             );
@@ -221,8 +218,6 @@ public void ApplyDamageLocal(float amount, int attackerActorNumber)
         foreach (Renderer r in GetComponentsInChildren<Renderer>()) r.enabled = state;
         foreach (Collider c in GetComponentsInChildren<Collider>()) c.enabled = state;
 
-        if (healthText != null) healthText.gameObject.SetActive(state);
-
         if (photonView.IsMine)
         {
             Camera cam = GetComponentInChildren<Camera>();
@@ -237,9 +232,9 @@ public void ApplyDamageLocal(float amount, int attackerActorNumber)
         Vector3 bestSpawnPos = Vector3.zero;
         Quaternion bestSpawnRot = Quaternion.identity;
 
-        if (DeathmatchManager.Instance != null && DeathmatchManager.Instance.spawnPoints.Length > 0)
+        if (GameLauncher.Instance != null && GameLauncher.Instance.spawnPoints.Length > 0)
         {
-            Transform[] spawns = DeathmatchManager.Instance.spawnPoints;            
+            Transform[] spawns = GameLauncher.Instance.spawnPoints;            
             PlayerHealth[] allPlayers = FindObjectsOfType<PlayerHealth>();
 
             float maxScorePosition = -1f;
@@ -318,9 +313,12 @@ public void ApplyDamageLocal(float amount, int attackerActorNumber)
         UpdateUI();
     }
 
-    void UpdateUI()
+    /// Met à jour l'UI locale du joueur avec la vie actuelle
+    private void UpdateUI()
     {
-        if (healthText == null) return;
-        healthText.text = Mathf.CeilToInt(currentHealth) + " / " + maxHealth;
+        if (MatchHUDManager.Instance != null && MatchHUDManager.Instance.LocalPlayerHUD != null)
+        {
+            MatchHUDManager.Instance.LocalPlayerHUD.UpdateHealthUI(currentHealth, maxHealth);
+        }
     }
 }

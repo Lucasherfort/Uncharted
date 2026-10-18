@@ -69,9 +69,6 @@ public class PlayerController : MonoBehaviour
         {
             playerCamera.enabled = false;   
             playerCamera.GetComponent<AudioListener>().enabled = false;  
-            // Sécurité si un joueur n'a pas de Canvas local sur son prefab
-            Canvas localCanvas = GetComponentInChildren<Canvas>();
-            if (localCanvas != null) localCanvas.enabled = false;
         }
         else
     {

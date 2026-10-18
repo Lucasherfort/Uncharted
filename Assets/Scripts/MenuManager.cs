@@ -50,7 +50,8 @@ public class MenuManager : MonoBehaviour
 
         searchButton.interactable = false;
 
-        int selectedMode = gameModeDropdown.value;
+        // Convertit l'index (0 ou 1) directement vers votre Enum (TeamDeathmatch ou FreeForAll)
+        GameMode selectedMode = (GameMode)gameModeDropdown.value;
 
         NetworkManager.Instance.ConnectAndJoin(nicknameField.text, selectedMode);
     }

@@ -1,14 +1,12 @@
 using UnityEngine;
-using TMPro;
-using UnityEngine.UI;
 using Photon.Pun;
-using System.Collections; // Nécessaire pour les Coroutines
+using System.Collections;
 
 public class PlayerShooter : MonoBehaviourPun
 {
     [Header("References")]
     public Camera fpsCamera;
-public AudioSource weaponAudioSource;
+    public AudioSource weaponAudioSource;
 
     [Header("Shooting")]
     public float range = 100f;
@@ -27,25 +25,20 @@ public AudioSource weaponAudioSource;
     public AudioClip hitSound;
     public AudioClip reloadSound;
     public AudioClip emptySound;
+    public AudioClip killSound;
 
-    [Header("UI")]
-    public TMP_Text ammoTxt;
-    public Image hitmarkerImage;
-    public Color hitColor = Color.red; // Couleur quand on touche
+    [Header("UI Feedback Settings")]
+    public Color hitColor = Color.red; // Couleur du hitmarker lors d'un coup réussi
     public float hitmarkerDuration = 0.5f;
+
+    [Header("UI Audio")]
+    public AudioSource uiAudioSource;
 
     private float nextTimeToFire;
     private bool isReloading;
     private bool isFiring;
-    private Coroutine hitmarkerCoroutine; // Pour éviter les conflits de couleurs
 
     private PlayerInputActions input;
-
-    [Header("Kill")]
-    public AudioClip killSound;
-
-    [Header("UI Audio")]
-public AudioSource uiAudioSource;
 
     void Awake()
     {
@@ -67,11 +60,11 @@ public AudioSource uiAudioSource;
     void Start()
     {
         currentAmmo = maxAmmo;
-        UpdateAmmoUI();
-        
-        // Initialiser le hitmarker en blanc au départ
-        if (hitmarkerImage != null)
-            hitmarkerImage.color = Color.white;
+
+        if (photonView.IsMine)
+        {
+            UpdateAmmoUI();
+        }
     }
 
     void Update()
@@ -104,53 +97,25 @@ public AudioSource uiAudioSource;
     }
 
     void Shoot()
-{
-    // Le son du tir est envoyé à tout le monde
-    photonView.RPC(nameof(RPC_ShootSound), RpcTarget.All);
-
-    Ray ray = new Ray(fpsCamera.transform.position, fpsCamera.transform.forward);
-
-    if (Physics.Raycast(ray, out RaycastHit hit, range))
     {
-        // 1. DÉTECTION DU MODE DE JEU ACTIF
-        bool isSurvivalMode = (SurvivalManager.Instance != null);
-        bool isDeathmatchMode = (DeathmatchManager.Instance != null);
+        // Le son du tir est envoyé à tout le monde
+        photonView.RPC(nameof(RPC_ShootSound), RpcTarget.All);
 
-        // ==========================================
-        // --- MODE SURVIE (ZOMBIES) ---
-        // ==========================================
-        if (isSurvivalMode)
-        {
-            if (hit.transform.TryGetComponent<ZombieHealth>(out var zombie))
-            {
-                zombie.TakeDamage(damage);
-                ShowHitmarker();
-                return; // On a touché un zombie, on arrête le raycast ici
-            }
-            
-            // Optionnel : On peut ignorer ou bloquer le tir sur les joueurs alliés ici
-            if (hit.transform.GetComponent<PhotonView>() != null)
-            {
-                Debug.Log("[SHOOT] Mode Survie actif : Le tir allié sur les joueurs est désactivé.");
-                return; 
-            }
-        }
+        Ray ray = new Ray(fpsCamera.transform.position, fpsCamera.transform.forward);
 
-        // ==========================================
-        // --- MODE DEATHMATCH (JOUEURS) ---
-        // ==========================================
-        if (isDeathmatchMode)
+        if (Physics.Raycast(ray, out RaycastHit hit, range))
         {
+
+            // ==========================================
+            // --- MODE DEATHMATCH (JOUEURS) ---
+            // ==========================================
+
             PhotonView targetView = hit.transform.GetComponent<PhotonView>();
-            
-            // On vérifie qu'on a touché un PhotonView ET que ce n'est pas nous-mêmes
+                
             if (targetView != null && targetView.Owner != null && !targetView.IsMine)
             {
                 Debug.Log($"[SHOOT] Hit player: {targetView.Owner.NickName}");
 
-                // CORRECTION SÉCURITÉ RÉSEAU : 
-                // On envoie le RPC UNIQUEMENT au propriétaire du personnage touché (targetView.Owner).
-                // Pas en RpcTarget.All, sinon tout le monde lui applique les dégâts en même temps.
                 targetView.RPC(
                     "RPC_TakeDamage", 
                     targetView.Owner, 
@@ -158,49 +123,39 @@ public AudioSource uiAudioSource;
                     PhotonNetwork.LocalPlayer.ActorNumber
                 );
 
-                // Effet visuel local (Hitmarker)
+                // Effet visuel et sonore local (Hitmarker via UI centrale)
                 ShowHitmarker();
             }
         }
     }
-}
 
-    // --- LOGIQUE DU HITMARKER ---
+    // --- LOGIQUE DU HITMARKER DÉLÉGUÉE À L'UI ---
     void ShowHitmarker()
     {
-        if (hitmarkerImage == null) return;
+        if (!photonView.IsMine) return;
 
-        // Si une coroutine tourne déjà (on tire vite), on l'arrête pour recommencer le chrono
-        if (hitmarkerCoroutine != null)
-            StopCoroutine(hitmarkerCoroutine);
+        // Appel de la méthode d'affichage du Hitmarker dans le HUD local
+        if (MatchHUDManager.Instance != null && MatchHUDManager.Instance.LocalPlayerHUD != null)
+        {
+            MatchHUDManager.Instance.LocalPlayerHUD.ShowHitmarker(hitColor, hitmarkerDuration);
+        }
 
-        hitmarkerCoroutine = StartCoroutine(HitmarkerFeedback());
-    }
-
-    IEnumerator HitmarkerFeedback()
-    {
-        hitmarkerImage.color = hitColor; // Passe au rouge
-        yield return new WaitForSeconds(hitmarkerDuration); // Attend 0.5s
-        hitmarkerImage.color = Color.white; // Revient au blanc
+        PlayHitSound();
     }
 
     [PunRPC] 
     void RPC_DealDamagePlayer(int victimActorNumber, float amount, int attackerActorNumber)
     {
-        // 1. On cherche tous les scripts de vie dans la scène
         PlayerHealth[] players = FindObjectsOfType<PlayerHealth>();
         
         foreach (var p in players)
         {
             PhotonView pv = p.GetComponent<PhotonView>();
             
-            // 2. On cherche le joueur qui a le VICTIM Actor Number (celui qui s'est pris la balle)
             if (pv != null && pv.Owner.ActorNumber == victimActorNumber)
             {
-                // 3. Seule la victime applique les dégâts localement sur sa machine
                 if (pv.IsMine)
                 {
-                    // Elle s'applique les dégâts en enregistrant bien l'ID de l'attaquant pour le score
                     p.ApplyDamageLocal(amount, attackerActorNumber);
                 }
             }
@@ -211,25 +166,33 @@ public AudioSource uiAudioSource;
     [PunRPC] void RPC_HitSound() => PlayKillSound();
     [PunRPC] void RPC_Empty() => PlayWeapon(emptySound);
 
-void PlayWeapon(AudioClip clip)
-{
-    if (clip && weaponAudioSource)
-        weaponAudioSource.PlayOneShot(clip);
-}
-
-    void UpdateAmmoUI()
+    void PlayWeapon(AudioClip clip)
     {
-        if (ammoTxt)
-            ammoTxt.text = infiniteAmmo ? "∞ / ∞" : currentAmmo + " / " + totalAmmo;
+        if (clip && weaponAudioSource)
+            weaponAudioSource.PlayOneShot(clip);
     }
 
-public void PlayKillSound()
-{
-    Debug.Log("Tentative de jouer le son de kill...");
-    if (killSound && uiAudioSource)
+    void PlayHitSound()
     {
-        Debug.Log("Son de kill joué !");
-        uiAudioSource.PlayOneShot(killSound);
+        if (hitSound && uiAudioSource)
+            uiAudioSource.PlayOneShot(hitSound);
     }
-}
+
+    public void PlayKillSound()
+    {
+        if (killSound && uiAudioSource)
+        {
+            uiAudioSource.PlayOneShot(killSound);
+        }
+    }
+
+    private void UpdateAmmoUI()
+    {
+        if (!photonView.IsMine) return;
+
+        if (MatchHUDManager.Instance != null && MatchHUDManager.Instance.LocalPlayerHUD != null)
+        {
+            MatchHUDManager.Instance.LocalPlayerHUD.UpdateAmmoUI(infiniteAmmo, currentAmmo, totalAmmo);
+        }
+    }
 }

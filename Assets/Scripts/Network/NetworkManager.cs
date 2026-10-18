@@ -11,7 +11,7 @@ public class NetworkManager : MonoBehaviourPunCallbacks
     [SerializeField] private byte maxPlayersPerRoom = 10;
     [SerializeField] private string gameVersion = "1.0";
 
-    private int selectedGameMode = 0; // 0 = Survie, 1 = Deathmatch
+    private GameMode selectedGameMode;
 
     void Awake()
     {
@@ -33,23 +33,18 @@ public class NetworkManager : MonoBehaviourPunCallbacks
     // 🔌 CONNEXION
     // =========================
 
-    public void ConnectAndJoin(string nickname, int gameMode)
+    // Méthode pour se connecter au serveur Photon et rejoindre une salle
+    public void ConnectAndJoin(string nickname, GameMode gameMode)
     {
         PhotonNetwork.NickName = nickname;
         selectedGameMode = gameMode;
 
-        // 👇 propriétés joueur
-        Hashtable playerProps = new()
-        {
-            { "Level", 1 } 
-        };
-
-        PhotonNetwork.LocalPlayer.SetCustomProperties(playerProps);
-
+        // Si je suis déjà connecté, je peux directement rejoindre ou créer une salle
         if (PhotonNetwork.IsConnected)
         {
             JoinOrCreateRoom();
         }
+        // Sinon, je me connecte au serveur Photon
         else
         {
             PhotonNetwork.ConnectUsingSettings();
@@ -63,24 +58,27 @@ public class NetworkManager : MonoBehaviourPunCallbacks
 
     void JoinOrCreateRoom()
     {
+        // On récupère le nombre max de joueurs selon le mode sélectionné
+        byte currentMaxPlayers = GetMaxPlayersForMode(selectedGameMode);
+
         Hashtable props = new Hashtable
         {
-            { "gm", selectedGameMode }
+            { "gm", (int)selectedGameMode } // On sauvegarde l'enum sous forme d'entier
         };
 
         RoomOptions options = new RoomOptions
         {
-            MaxPlayers = maxPlayersPerRoom,
+            MaxPlayers = currentMaxPlayers,
             IsVisible = true,
             CustomRoomProperties = props,
             CustomRoomPropertiesForLobby = new string[] { "gm" }
         };
 
-        Debug.Log($"[Network] Matchmaking mode = {selectedGameMode}");
+        Debug.Log($"[Network] Matchmaking mode = {selectedGameMode} | Max Players = {currentMaxPlayers}");
 
         PhotonNetwork.JoinRandomOrCreateRoom(
             props,
-            maxPlayersPerRoom,
+            currentMaxPlayers, // On filtre aussi le matchmaking avec cette limite
             MatchmakingMode.FillRoom,
             TypedLobby.Default,
             null,
@@ -139,11 +137,11 @@ public class NetworkManager : MonoBehaviourPunCallbacks
 
         if (gm == 0)
         {
-            PhotonNetwork.LoadLevel("Survival");
+            PhotonNetwork.LoadLevel("Warehouse");
         }
         else if (gm == 1)
         {
-            PhotonNetwork.LoadLevel("Deathmatch2");
+            PhotonNetwork.LoadLevel("Warehouse");
         }
     }
 
@@ -171,5 +169,18 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         int current = PhotonNetwork.CurrentRoom.PlayerCount;
 
         PhotonNetwork.CurrentRoom.IsOpen = current < maxPlayersPerRoom;
+    }
+
+    private byte GetMaxPlayersForMode(GameMode mode)
+    {
+        switch (mode)
+        {
+            case GameMode.TeamDeathmatch:
+                return 10; // 10 joueurs max pour le TDM
+            case GameMode.FreeForAll:
+                return 8;  // 8 joueurs max pour le FFA
+            default:
+                return 10; // Valeur de sécurité par défaut
+        }
     }
 }
